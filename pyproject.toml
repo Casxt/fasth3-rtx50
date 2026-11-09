@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools==84.2.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fasth3-rtx50"
+version = "0.1.0"
+description = "Memory-bounded MiniMax H3 video generation on NVIDIA RTX 50 GPUs"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "accelerate==1.15.0",
+    "av==19.0.2",
+    "cuda-python==12.9.10",
+    "diffusers @ https://github.com/huggingface/diffusers/archive/84532a058702c74ae5d1dd6ceb05683fc5d5e768.zip#sha256=54853398c21322d426db027507a213fc1bb21e94a0590ced6fb9faeb3b12063a",
+    "filelock==4.2.9",
+    "huggingface-hub==2.4.0",
+    "imageio==2.38.1",
+    "imageio-ffmpeg==0.8.1",
+    "numpy==2.5.4",
+    "nvidia-cutlass-dsl==4.8.1",
+    "pillow==13.0.0",
+    "protobuf==7.36.2",
+    "psutil==7.2.2",
+    "safetensors==0.8.0",
+    "sentencepiece==0.2.3",
+    "torch==2.10.0",
+    "torchvision==0.25.0",
+    "transformers==5.22.2",
+]
+
+[project.optional-dependencies]
+test = ["pytest==9.2.0"]
+pe = ["open-h3-ir==0.4.1"]
+
+[project.scripts]
+fasth3 = "fasth3_pipeline.cli:main"
+
+[tool.setuptools]
+py-modules = ["fasth3_platform"]
+
+[tool.setuptools.packages.find]
+include = ["fasth3_pipeline*", "fasth3_kernels*"]
+namespaces = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

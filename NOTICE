@@ -1,0 +1,9 @@
+FastH3 RTX50
+Copyright 2026 Casxt and FastH3 RTX50 contributors
+
+This project uses separately installed Hugging Face Diffusers, NVIDIA CUTLASS
+and CuTe DSL, PyTorch, and optionally OpenH3-IR. Their own licenses apply.
+
+MiniMax H3 and FastVideo model assets are obtained from their original upstream
+repositories. Those assets, converted weights and model outputs are separate
+from this repository's Apache-2.0 code license.
