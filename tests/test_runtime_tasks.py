@@ -121,12 +121,15 @@ def _prepared_task(task, anchors):
     return pipe, _prepare_denoising(core, pipe, state, task)
 
 
-@pytest.mark.parametrize('task,anchors', [('t2va', ()), ('f2va', ('first',)), ('fl2va', ('first', 'last'))])
-def test_official_core_packs_and_freezes_endpoint_latents(task, anchors):
+@pytest.mark.parametrize('task,anchors,tile_size', [
+    ('t2va', (), 64), ('f2va', ('first',), 128),
+    ('fl2va', ('first', 'last'), 64), ('fl2va', ('first', 'last'), 128),
+])
+def test_official_core_packs_and_freezes_endpoint_latents(task, anchors, tile_size):
     pipe, state = _prepared_task(task, anchors)
-    layout = layout_from_state(state, pipe.patch_size, 'cpu', task=task)
+    layout = layout_from_state(state, pipe.patch_size, 'cpu', task=task, tile_size=tile_size)
     assert layout.inverse.numel() == len(state.get('token_tags'))
-    assert layout.tile_size == (128 if anchors else 64)
+    assert layout.tile_size == tile_size
     assert len(layout.video_spans) == 1
     condition_rows = state.get('num_condition_video_rows')
     assert condition_rows == 4 * len(anchors)
@@ -139,13 +142,15 @@ def test_official_core_packs_and_freezes_endpoint_latents(task, anchors):
             expected_last = positions[-4:].clone()
             expected_last[:, 0] += 5.0
             torch.testing.assert_close(positions[4:8], expected_last, rtol=0, atol=1e-12)
-        plan = PDDPlan.create()
+        plan = DMD2Plan() if tile_size == 64 else PDDPlan.create()
         latent = state.get('latents')[None]
         frozen = latent[:, :condition_rows].clone()
         latent = plan.scale_initial_noise(latent, 'video', condition_rows)
+        initial_target = latent[:, condition_rows:].clone()
         for step in range(8):
             latent = plan.update(latent, torch.ones_like(latent), 'video', step, condition_rows)
             assert torch.equal(latent[:, :condition_rows], frozen)
+        assert not torch.equal(latent[:, condition_rows:], initial_target)
 
 
 

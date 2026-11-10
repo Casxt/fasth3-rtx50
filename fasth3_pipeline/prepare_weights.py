@@ -37,6 +37,26 @@ SHARED = Source('shared', 'MiniMaxAI/MiniMax-H3', '9bfb6693f2cf6de171db46d1aa586
 ENCODER = Source('encoder-nvfp4', 'FastVideo/FastH3-Omni-NVFP4-QAD',
                  'f01e6a23ac6066aa9eb622cf94b6259442e70ec2', 13)
 
+V2_MODEL = 'fasth3-v2-t2va'
+OMNI_MODEL = 'fasth3-omni-ref2va'
+TASK_MODELS = {
+    't2va': (V2_MODEL,),
+    'f2va': (OMNI_MODEL,),
+    'fl2va': (V2_MODEL, OMNI_MODEL),
+    'r2va': (OMNI_MODEL,),
+}
+
+
+def model_for_task(task, model_source=None):
+    if task not in TASK_MODELS:
+        raise ValueError(f'Unknown generation task: {task}')
+    choices = TASK_MODELS[task]
+    if model_source is None:
+        return choices[0]
+    if model_source not in choices:
+        raise ValueError(f'{task} supports only: {", ".join(choices)}')
+    return model_source
+
 
 @dataclass(frozen=True)
 class Asset:
@@ -244,15 +264,15 @@ def _overlays(root, omni):
             export_adaln(['--transformer', str(omni), '--output', str(adaln)])
 
 
-def generation_assets(models_dir, task):
+def generation_assets(models_dir, task, model_source=None):
     """Resolve prepared model paths for the public generation commands."""
     root = Path(models_dir).resolve()
-    if task not in ('t2va', 'f2va', 'fl2va', 'r2va'):
-        raise ValueError(f'Unknown generation task: {task}')
-    t2va = task == 't2va'
+    model_source = model_for_task(task, model_source)
+    use_v2 = model_source == V2_MODEL
     return {
-        'base_model': root / (T2VA.folder if t2va else OMNI.folder),
-        'transformer_path': root / ('t2va-v2-mxfp8-packed/transformer' if t2va else 'mxfp8-packed/transformer_ref'),
+        'model_source': model_source,
+        'base_model': root / (T2VA.folder if use_v2 else OMNI.folder),
+        'transformer_path': root / ('t2va-v2-mxfp8-packed/transformer' if use_v2 else 'mxfp8-packed/transformer_ref'),
         'text_encoder_path': root / ENCODER.folder / 'text_encoder',
         'shared_components': root / SHARED.folder,
     }
@@ -261,7 +281,8 @@ def generation_assets(models_dir, task):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='fasth3 prepare', description=__doc__)
     parser.add_argument('--models-dir', type=Path, default=Path('models'))
-    parser.add_argument('--task', choices=('t2va', 'f2va', 'fl2va', 'r2va', 'all'), default='all')
+    parser.add_argument('--task', choices=(*TASK_MODELS, 'all'), default='all')
+    parser.add_argument('--model', choices=(V2_MODEL, OMNI_MODEL), help='Model source for the selected task')
     parser.add_argument('--accept-model-license', action='store_true', help=f'Acknowledge {MODEL_LICENSE}')
     operation = parser.add_mutually_exclusive_group()
     operation.add_argument('--plan', action='store_true', help='Show required files and missing bytes without downloading')
@@ -269,10 +290,19 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not args.plan and not args.accept_model_license:
         parser.error(f'Read {MODEL_LICENSE} and pass --accept-model-license before download or conversion')
+    if args.task == 'all':
+        if args.model is not None:
+            parser.error('--model requires a specific --task')
+        sources = (OMNI, T2VA)
+    else:
+        try:
+            model_source = model_for_task(args.task, args.model)
+        except ValueError as error:
+            parser.error(str(error))
+        sources = (T2VA if model_source == V2_MODEL else OMNI,)
     from huggingface_hub import HfApi, get_token
 
     root = args.models_dir.resolve()
-    sources = {'t2va': (T2VA,), 'all': (OMNI, T2VA)}.get(args.task, (OMNI,))
     api = HfApi()
     inventory = [(source, _assets(api, source)) for source in (*sources, SHARED, ENCODER)]
     missing = 0

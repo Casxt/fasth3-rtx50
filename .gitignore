@@ -10,6 +10,7 @@ assets/
 /PLAN.md
 *.safetensors
 *.mp4
+!/examples/demos/*.mp4
 *.mkv
 *.partial
 *.aria2

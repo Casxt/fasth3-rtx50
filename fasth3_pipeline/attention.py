@@ -98,10 +98,13 @@ def select_block_indices(scores, layout, sparsity=.9, reference_keep_rate=.1):
 
 
 class H3VSAProcessor:
-    def __init__(self, layout, *, sparsity=.9, packed_output=False, cache_bytes=0):
+    def __init__(self, layout, *, sparsity=.9, packed_output=False, cache_bytes=0, host_scratch=None,
+                 reuse_input=False):
         self.layout = layout
         self.sparsity = sparsity
         self.packed_output, self.cache_bytes = packed_output, cache_bytes
+        self.host_scratch = host_scratch
+        self.reuse_input = reuse_input
 
     def __call__(self, attn, hidden_states, rotary_emb=None, attention_mask=None):
         if attention_mask is not None:

@@ -22,6 +22,60 @@ def test_aligned_released_limit_is_instance_local():
     assert b.max_duration == 15.0
 
 
+def test_host_attention_scratch_reuses_and_releases_staging(monkeypatch):
+    from types import SimpleNamespace
+    from fasth3_pipeline import long_video
+
+    drained = []
+
+    def make_slots(host, columns, device):
+        return SimpleNamespace(copy_stream=SimpleNamespace(synchronize=lambda: drained.append(True)))
+
+    monkeypatch.setattr(long_video, '_PinnedHeadOutput', make_slots)
+    scratch = long_video.LongVideoScratch()
+    flat = torch.empty(3, 4, dtype=torch.bfloat16)
+    host, slots = scratch.acquire(flat, 4, 2)
+    next_host, next_slots = scratch.acquire(flat, 4, 2)
+    assert next_host is host
+    assert next_slots is slots
+    shape = (1, 3, 4)
+    assert scratch.prepare_cuda(shape, 'cpu', SimpleNamespace(available_bytes=lambda: 47)) == 0
+    assert scratch.prepare_cuda(shape, 'cpu', SimpleNamespace(available_bytes=lambda: 48)) == 48
+    assert scratch.packed.shape == scratch.modulated.shape == shape
+    assert scratch.packed.data_ptr() != scratch.modulated.data_ptr()
+    scratch.close()
+    scratch.close()
+    assert scratch.host is scratch.pinned is None
+    assert scratch.packed is scratch.modulated is None
+    assert drained == [True]
+
+
+def test_host_projection_can_overwrite_disposable_modulation(monkeypatch):
+    from types import SimpleNamespace
+    from fasth3_pipeline import long_video
+    from fasth3_pipeline.attention import H3VSAProcessor
+
+    class Projection:
+        out_features = 4
+
+        def __call__(self, x, *, output):
+            output.copy_(x[:, :self.out_features])
+
+    def attend(processor, attn, flat, rotary, first, last, cache):
+        return (flat[:, :1] + first + 1).expand(-1, (last - first) * 128)
+
+    monkeypatch.setattr(long_video, '_PinnedHeadOutput', lambda *args: None)
+    monkeypatch.setattr(long_video, '_attend_heads', attend)
+    attn = SimpleNamespace(heads=2, to_out=(Projection(), nn.Identity()))
+    x = torch.arange(16, dtype=torch.bfloat16).reshape(1, 4, 4)
+    reference = long_video.grouped_attention(H3VSAProcessor(None), attn, x, None, heads_per_group=1)
+    modulated = x.clone()
+    processor = H3VSAProcessor(None, reuse_input=True)
+    output = long_video.grouped_attention(processor, attn, modulated, None, heads_per_group=1)
+    assert output.data_ptr() == modulated.data_ptr()
+    torch.testing.assert_close(output, reference, rtol=0, atol=0)
+
+
 def test_long_modulation_preserves_rounding_at_chunk_boundary():
     torch.manual_seed(34)
     x = torch.randn(1, 2051, 32, dtype=torch.bfloat16)

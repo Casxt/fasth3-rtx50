@@ -4,15 +4,17 @@ from PIL import Image
 import pytest
 
 from fasth3_pipeline import cli, runner
+from fasth3_pipeline.prepare_weights import OMNI_MODEL, V2_MODEL
 
 
-@pytest.mark.parametrize(("task", "media"), [
-    ("t2va", []), ("f2va", ["--first-frame", "first.png"]),
-    ("fl2va", ["--first-frame", "first.png", "--last-frame", "last.png"]),
-    ("r2va", ["--reference", "video:clip.mp4"]),
+@pytest.mark.parametrize(("task", "media", "model"), [
+    ("t2va", [], V2_MODEL), ("f2va", ["--first-frame", "first.png"], OMNI_MODEL),
+    ("fl2va", ["--first-frame", "first.png", "--last-frame", "last.png"], V2_MODEL),
+    ("fl2va", ["--first-frame", "first.png", "--last-frame", "last.png", "--model", OMNI_MODEL], OMNI_MODEL),
+    ("r2va", ["--reference", "video:clip.mp4"], OMNI_MODEL),
 ])
 @pytest.mark.parametrize("debug_checks", [False, True])
-def test_public_generation_preserves_task_roles_and_export_count(task, media, debug_checks, monkeypatch, tmp_path):
+def test_public_generation_preserves_task_roles_and_export_count(task, media, model, debug_checks, monkeypatch, tmp_path):
     import fasth3_platform
 
     export_frames = 124 if task == "fl2va" else 120
@@ -34,11 +36,6 @@ def test_public_generation_preserves_task_roles_and_export_count(task, media, de
     Image.new("RGBA", (16, 8), color=(2, 3, 4, 255)).save("last.png")
     monkeypatch.setattr(fasth3_platform, "BudgetGuard", FakeGuard)
 
-    def resolve(path, mode):
-        assert mode == task
-        return {"base_model": path/"bf16", "transformer_path": path/"packed",
-                "text_encoder_path": path/"encoder"}
-
     def load(items, **kwargs):
         assert items == ["video:clip.mp4"]
         assert kwargs["video_frames"] == 120
@@ -52,7 +49,6 @@ def test_public_generation_preserves_task_roles_and_export_count(task, media, de
         assert result == {"test": True} and num_frames == export_frames
         return output
 
-    monkeypatch.setattr(cli, "_model_assets", resolve)
     monkeypatch.setattr(runner, "load_references", load)
     monkeypatch.setattr(runner, "run_h3", run)
     monkeypatch.setattr(runner, "save_result", save)
@@ -65,6 +61,8 @@ def test_public_generation_preserves_task_roles_and_export_count(task, media, de
             args.extend(["--reference-image-short-edge", "768"])
     assert cli.main(args) == 0
     assert captured["task"] == task
+    assert captured["model_source"] == model
+    assert captured["transformer_path"].name == ("transformer" if model == V2_MODEL else "transformer_ref")
     assert captured["num_frames"] == export_frames
     assert (captured["height"], captured["width"]) == (768, 1344)
     assert captured["debug_checks"] is debug_checks

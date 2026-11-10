@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 from time import perf_counter
 
+from .prepare_weights import TASK_MODELS, generation_assets
 from .prompt_enhance import TASKS
 
 
@@ -61,12 +62,6 @@ def _doctor(argv):
     from .doctor import main
 
     return main(argv)
-
-
-def _model_assets(models_dir, task):
-    from .prepare_weights import generation_assets
-
-    return generation_assets(models_dir, task)
 
 
 def _read_prompt(args):
@@ -144,7 +139,7 @@ def _run_generation(args):
     started = perf_counter()
     prompt = _read_prompt(args)
     height, width, contract = _canvas(args.aspect_ratio)
-    assets = _model_assets(args.models_dir, args.task)
+    assets = generation_assets(args.models_dir, args.task, getattr(args, 'model', None))
     aligned = aligned_video_frames(args.num_frames)
     output = args.output.resolve()
     metadata_path = output.with_suffix(".json")
@@ -214,6 +209,10 @@ def main(argv=None):
                              help="Enhance the prompt with DeepSeek Flash and bounded visual samples")
         command.add_argument("--debug-checks", action="store_true",
                              help="Enable deep numerical checks on weights, activations and stages")
+        if task == "fl2va":
+            models = TASK_MODELS[task]
+            command.add_argument("--model", choices=models, default=models[0],
+                                 help=f"DiT checkpoint source (default: {models[0]})")
         if task == "r2va":
             command.add_argument("--reference-image-short-edge", type=int, default=256,
                                  help="Reference image short edge for local conditioning (default: 256)")

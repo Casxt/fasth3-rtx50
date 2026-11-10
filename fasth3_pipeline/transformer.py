@@ -123,7 +123,7 @@ def _pipelined_mxfp8_ffn(ff, hidden_states, *, persistent_full=True, pack=None):
     return result.reshape(*hidden_states.shape[:-1], down.out_features)
 
 
-def install_vsa(model, layout, budget, *, sparsity=.9, debug_checks=False):
+def install_vsa(model, layout, budget, *, sparsity=.9, debug_checks=False, long_scratch=None):
     from types import MethodType
     from .long_video import install_long_blocks
     from .mxfp8_linear import MXFP8Linear
@@ -138,14 +138,17 @@ def install_vsa(model, layout, budget, *, sparsity=.9, debug_checks=False):
         if isinstance(layer, MXFP8Linear):
             layer.tma_store = tma_store
     for block in model.transformer_blocks:
-        block.attn.set_processor(H3VSAProcessor(layout, sparsity=sparsity, packed_output=packed, cache_bytes=cache_bytes))
+        block.attn.set_processor(H3VSAProcessor(layout, sparsity=sparsity, packed_output=packed,
+                                                cache_bytes=cache_bytes, host_scratch=long_scratch,
+                                                reuse_input=not packed))
         up, down = block.ff.net[0].proj, block.ff.net[2]
         native = (not (up.debug_checks or down.debug_checks)
                   and (up.in_features, up.out_features, down.in_features, down.out_features)
                   == (5376, 28672, 14336, 5376))
         block.ff.forward = MethodType(_pipelined_mxfp8_ffn if native else _streamed_fused_ffn, block.ff)
         block._pack_ffn_adaln = native
-    install_long_blocks(model)
+    install_long_blocks(model, None if packed else long_scratch)
     return {'attention_output': 'mxfp8' if packed else 'host', 'qkv_cache_bytes': cache_bytes,
             'available_bytes': available, 'tokens': layout.inverse.numel(),
-            'tma_store': tma_store}
+            'tma_store': tma_store, 'host_output_reuse': not packed and long_scratch is not None,
+            'host_output_inplace': not packed}

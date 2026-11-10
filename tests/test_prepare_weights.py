@@ -9,16 +9,37 @@ from fasth3_pipeline import prepare_weights as weights
 
 
 def test_profile_paths_are_explicit(tmp_path):
-    for task in ('f2va', 'fl2va', 'r2va'):
-        paths = weights.generation_assets(tmp_path, task)
+    for task, model in (('f2va', None), ('r2va', None), ('fl2va', weights.OMNI_MODEL)):
+        paths = weights.generation_assets(tmp_path, task, model)
+        assert paths['model_source'] == weights.OMNI_MODEL
         assert paths['base_model'] == tmp_path / 'bf16'
         assert paths['transformer_path'] == tmp_path / 'mxfp8-packed' / 'transformer_ref'
         assert paths['text_encoder_path'] == tmp_path / 'encoder-nvfp4' / 'text_encoder'
     t2va = weights.generation_assets(tmp_path, 't2va')
+    assert weights.generation_assets(tmp_path, 'fl2va') == t2va
+    assert t2va['model_source'] == weights.V2_MODEL
     assert t2va['base_model'] == tmp_path / 't2va-v2-bf16'
     assert t2va['transformer_path'] == tmp_path / 't2va-v2-mxfp8-packed' / 'transformer'
+    with pytest.raises(ValueError, match='r2va supports only'):
+        weights.generation_assets(tmp_path, 'r2va', weights.V2_MODEL)
     with pytest.raises(ValueError, match='Unknown generation task'):
         weights.generation_assets(tmp_path, 'ti2v')
+
+
+@pytest.mark.parametrize('model,source', [(None, weights.T2VA), (weights.OMNI_MODEL, weights.OMNI)])
+def test_prepare_fl2va_selects_matching_checkpoint(monkeypatch, tmp_path, model, source):
+    selected = []
+
+    def inventory(api, candidate):
+        selected.append(candidate)
+        return []
+
+    monkeypatch.setattr(weights, '_assets', inventory)
+    args = ['--task', 'fl2va', '--models-dir', str(tmp_path), '--plan']
+    if model is not None:
+        args.extend(['--model', model])
+    assert weights.main(args) == 0
+    assert selected == [source, weights.SHARED, weights.ENCODER]
 
 
 def test_pinned_allowlist_rejects_unrelated_variants_and_escaped_paths():

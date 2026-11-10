@@ -59,13 +59,19 @@ class DMD2Plan:
         return float(1.0 - self.sigmas[modality][step])
 
     def scale_initial_noise(self, sample, modality, condition_rows=0):
-        if modality not in self.schedulers or condition_rows:
-            raise ValueError('FastH3 V2 DMD2 accepts only unconditioned text-to-video latents')
+        if modality not in self.schedulers or not 0 <= condition_rows <= sample.shape[1]:
+            raise ValueError('Invalid FastH3 V2 modality or conditioning row count')
         # The upstream FastVideo DMD2 path starts from unscaled Gaussian noise.
         return sample
 
     def update(self, sample, prediction, modality, step, condition_rows=0):
-        if condition_rows or sample.shape != prediction.shape:
+        if not 0 <= condition_rows <= sample.shape[1] or sample.shape != prediction.shape:
             raise ValueError('Invalid packed FastH3 V2 prediction or conditioning rows')
         scheduler = self.schedulers[modality]
-        return scheduler.step(prediction.float(), scheduler.timesteps[step], sample, return_dict=False)[0]
+        if not condition_rows:
+            return scheduler.step(prediction.float(), scheduler.timesteps[step], sample, return_dict=False)[0]
+        # Endpoint rows precede the generated video and stay fixed across steps.
+        target = slice(condition_rows, None)
+        sample[:, target] = scheduler.step(prediction[:, target].float(), scheduler.timesteps[step],
+                                           sample[:, target], return_dict=False)[0]
+        return sample

@@ -228,6 +228,47 @@ class _PinnedHeadOutput:
         self._drain(1)
 
 
+class LongVideoScratch:
+    """Keep the host staging and fixed-shape CUDA buffers for one long request."""
+
+    def __init__(self):
+        self.host = self.pinned = None
+        self.packed = self.modulated = None
+
+    def prepare_cuda(self, shape, device, budget):
+        # Two BF16 matrices: the residual sequence and its disposable AdaLN input.
+        required = 4 * shape[0] * shape[1] * shape[2]
+        if required > budget.available_bytes():
+            return 0
+        try:
+            self.packed = torch.empty(shape, device=device, dtype=torch.bfloat16)
+            self.modulated = torch.empty_like(self.packed)
+        except torch.OutOfMemoryError:
+            self.packed = self.modulated = None
+            torch.cuda.empty_cache()
+            return 0
+        return required
+
+    def acquire(self, flat, width, columns):
+        shape = (len(flat), width)
+        if self.host is None:
+            self.host = torch.empty(shape, dtype=flat.dtype, device="cpu")
+            # Cap the two activation slots separately from weight staging.
+            if len(flat) * columns * flat.element_size() * 2 <= 512 << 20:
+                self.pinned = _PinnedHeadOutput(self.host, columns, flat.device)
+        elif self.host.shape != shape or self.host.dtype != flat.dtype:
+            raise ValueError("Host attention scratch requires fixed request geometry")
+        return self.host, self.pinned
+
+    def close(self):
+        try:
+            if self.pinned is not None:
+                self.pinned.copy_stream.synchronize()
+        finally:
+            self.pinned = self.host = None
+            self.packed = self.modulated = None
+
+
 def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_group=4):
     """Bound attention workspace by independent heads; keep all tokens and routes."""
 
@@ -239,16 +280,14 @@ def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_grou
     packed_output = processor.packed_output
     cache_budget = processor.cache_bytes
     cache = _cache_qkv_activations(attn, flat, cache_budget) if cache_budget else None
+    pinned = None
     if packed_output:
         from fasth3_kernels.mxfp8 import quantize_mxfp8_cute
         values = flat.new_empty((len(flat), width), dtype=torch.float8_e4m3fn)
         scales = flat.new_empty((len(flat), width // 32), dtype=torch.uint8)
     else:
-        host = torch.empty((len(flat), width), dtype=flat.dtype, device="cpu")
-    pinned = None
-    # Cap the two activation slots independently of the weight-stream pin pool.
-    if not packed_output and len(flat) * heads_per_group * 128 * flat.element_size() * 2 <= 512 << 20:
-        pinned = _PinnedHeadOutput(host, heads_per_group * 128, flat.device)
+        scratch = processor.host_scratch or LongVideoScratch()
+        host, pinned = scratch.acquire(flat, width, heads_per_group * 128)
     try:
         for first in range(0, attn.heads, heads_per_group):
             last = min(first + heads_per_group, attn.heads)
@@ -273,7 +312,9 @@ def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_grou
     out_layer = attn.to_out[0]
     if packed_output:
         return attn.to_out[1](_project_packed_attention(out_layer, values, scales, flat).unsqueeze(0))
-    result = flat.new_empty((len(flat), out_layer.out_features))
+    # All heads have finished reading the disposable modulated block input.
+    # The residual lives in a different tensor, so the projection can fill this buffer.
+    result = flat if processor.reuse_input else flat.new_empty((len(flat), out_layer.out_features))
     for begin in range(0, len(flat), 2048):
         part = slice(begin, begin + 2048)
         out_layer(host[part].to(flat.device), output=result[part])
@@ -284,8 +325,8 @@ def _modulate_chunk(states, norm, shift, scale, rows):
     return norm(states) * (1.0 + scale.index_select(0, rows)) + shift.index_select(0, rows)
 
 
-def _modulate(states, norm, shift, scale, indices, *, output_dtype=None):
-    result = torch.empty_like(states, dtype=output_dtype)
+def _modulate(states, norm, shift, scale, indices, *, output_dtype=None, out=None):
+    result = torch.empty_like(states, dtype=output_dtype) if out is None else out
     for begin in range(0, states.shape[1], 2048):
         part = slice(begin, begin + 2048)
         result[:, part] = _modulate_chunk(states[:, part], norm, shift, scale, indices[part])
@@ -328,7 +369,11 @@ def _ffn_residual(block, states, shift, scale, gate, indices):
 
 def _block_forward(block, hidden_states, temb, adaln_indices, rotary_emb, attention_mask=None):
     sa, ca, ga, sf, cf, gf = block.adaln_proj(temb)
-    attn = block.attn(_modulate(hidden_states, block.norm1, sa, ca, adaln_indices), rotary_emb, attention_mask)
+    scratch = block._long_scratch
+    modulated = _modulate(hidden_states, block.norm1, sa, ca, adaln_indices,
+                          out=scratch.modulated if scratch is not None else None)
+    attn = block.attn(modulated, rotary_emb, attention_mask)
+    del modulated
     _add_residual(attn, hidden_states, ga, adaln_indices)
     del attn
     return _ffn_residual(block, hidden_states, sf, cf, gf, adaln_indices)
@@ -378,8 +423,15 @@ def _model_forward(model, hidden_states, audio_hidden_states, encoder_hidden_sta
     if attention_kwargs or torch.is_grad_enabled():
         raise ValueError('Long-video execution requires inference without attention overrides')
     dtype = get_parameter_dtype(model.context_embedder)
-    packed = hidden_states.new_zeros((hidden_states.shape[0], length, model.context_embedder.out_features),
-                                    dtype=dtype)
+    shape = (hidden_states.shape[0], length, model.context_embedder.out_features)
+    scratch = model._long_scratch
+    if scratch is not None and scratch.packed is not None:
+        packed = scratch.packed
+        if packed.shape != shape or packed.dtype != dtype or packed.device != hidden_states.device:
+            raise ValueError('Long-video CUDA scratch differs from request geometry')
+        packed.zero_()
+    else:
+        packed = hidden_states.new_zeros(shape, dtype=dtype)
     _project_into(packed, video_indices, model.proj_in, hidden_states)
     _project_into(packed, audio_indices, model.audio_proj_in, audio_hidden_states)
     static = getattr(model, '_long_static', None)
@@ -408,8 +460,10 @@ def _model_forward(model, hidden_states, audio_hidden_states, encoder_hidden_sta
     return MiniMaxH3TransformerOutput(sample=video, audio_sample=audio) if return_dict else (video, audio)
 
 
-def install_long_blocks(model):
+def install_long_blocks(model, scratch=None):
+    model._long_scratch = scratch
     for block in model.transformer_blocks:
+        block._long_scratch = scratch
         block.forward = MethodType(_block_forward, block)
     model.norm_out.forward = MethodType(_output_norm_forward, model.norm_out)
     model.forward = MethodType(_model_forward, model)

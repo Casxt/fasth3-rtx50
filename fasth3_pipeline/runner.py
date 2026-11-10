@@ -63,7 +63,7 @@ def load_references(items, *, video_canvas=None, video_frames=None):
     return references
 
 
-def layout_from_state(state, patch_size, device, *, task='r2va'):
+def layout_from_state(state, patch_size, device, *, task, tile_size):
     _, ph, pw = patch_size
     segments = [int(state.get("prompt_embeds").shape[1])]
     if task == 'r2va':
@@ -81,7 +81,7 @@ def layout_from_state(state, patch_size, device, *, task='r2va'):
     segments += [int(state.get("num_audio_latents"))*2,
                  (int(state.get("num_latent_frames")), int(state.get("latent_height"))//ph,
                   int(state.get("latent_width"))//pw)]
-    return TileLayout.build(segments, device, tile_size=64 if task == 't2va' else 128)
+    return TileLayout.build(segments, device, tile_size=tile_size)
 
 
 def validate_task_inputs(task, references=(), first_frame=None, last_frame=None):
@@ -232,17 +232,20 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
            references=(), first_frame=None, last_frame=None, device='cuda:0', height=768, width=1344,
            num_frames=124, seed=1234, shared_components=None, reference_image_short_edge=256,
            diagnostics=None, canvas_config=None, debug_checks=False, adaln_table=None,
-           reference_cache=None, vae_mxfp8=None):
+           reference_cache=None, vae_mxfp8=None, model_source=None):
     from .diagnostics import PipelineDiagnostics
-    from .long_video import aligned_video_frames, allow_released_maximum
+    from .long_video import LongVideoScratch, aligned_video_frames, allow_released_maximum
+    from .prepare_weights import OMNI_MODEL, model_for_task
     references = tuple(references or ())
     task = validate_task_inputs(task, references, first_frame, last_frame)
     aligned_frames = aligned_video_frames(num_frames)
     if task == 'fl2va' and aligned_frames != num_frames:
         raise ValueError(f'fl2va requires a VAE-aligned frame count to retain the closing-frame time; '
                          f'{num_frames} rounds up to {aligned_frames}')
-    is_pdd = task != 't2va'
+    model_source = model_for_task(task, model_source)
+    is_pdd = model_source == OMNI_MODEL
     profile = OMNI_PROFILE if is_pdd else T2VA_PROFILE
+    tile_size = 128 if is_pdd else 64
     if diagnostics is None:
         diagnostics = PipelineDiagnostics(guard=guard, debug_checks=debug_checks)
     debug_checks = debug_checks or diagnostics.debug_checks
@@ -254,9 +257,9 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
     blocks = MiniMaxH3Blocks()
     base_model = Path(base_model).resolve(strict=True)
     plan = PDDPlan.create() if is_pdd else DMD2Plan.from_checkpoint(base_model, 'cpu')
-    diagnostics.streaming['model'] = {'task': task, 'profile': profile,
+    diagnostics.streaming['model'] = {'task': task, 'source': model_source, 'profile': profile,
                                       'sampler': 'pdd' if is_pdd else 'dmd2',
-                                      'vsa_tile_size': 128 if is_pdd else 64}
+                                      'vsa_tile_size': tile_size}
     shared_components = Path(shared_components).resolve(strict=True) if shared_components else base_model.parent / "shared"
     pipe = blocks.init_pipeline(str(base_model))
     allow_released_maximum(pipe)
@@ -367,18 +370,24 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
 
     component = 'transformer_ref' if is_pdd else 'transformer'
     core_name = {'r2va': 'ref2va', 'f2va': 'fl2va', 'fl2va': 'fl2va', 't2va': 't2va'}[task]
+    long_scratch = LongVideoScratch()
     try:
         pipe.update_components(**{component: model})
         core = blocks.sub_blocks['denoise'].sub_blocks[core_name]
         state = _prepare_denoising(core, pipe, state, task)
-        layout = layout_from_state(state, pipe.patch_size, device, task=task)
-        policy = install_vsa(model, layout, guard.budget, sparsity=.9 if is_pdd else .8, debug_checks=debug_checks)
+        layout = layout_from_state(state, pipe.patch_size, device, task=task, tile_size=tile_size)
+        policy = install_vsa(model, layout, guard.budget, sparsity=.9 if is_pdd else .8,
+                             debug_checks=debug_checks, long_scratch=long_scratch)
         diagnostics.streaming['dit_policy'] = policy
         if adaln_table is not None or not is_pdd:
             # Text refinement and rotary positions are fixed for this run.
             model._long_static = {}
         fields = {name: state.get(name) for name in ("token_tags", "position_ids", "video_indices", "audio_indices", "text_indices")}
         video, audio = state.get("latents")[None], state.get("audio_latents")[None]
+        if policy.get('host_output_reuse'):
+            shape = (video.shape[0], len(fields['position_ids']), model.context_embedder.out_features)
+            policy['activation_arena_bytes'] = long_scratch.prepare_cuda(shape, device, guard.budget)
+            guard('long DiT activation buffers prepared')
         cv, ca = state.get("num_condition_video_rows"), state.get("num_condition_audio_rows")
         prompt_embeds = state.get("prompt_embeds")
         diagnostics.checkpoint("noise-unscaled", {"video": video, "audio": audio, **fields},
@@ -416,7 +425,10 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
         state.set("audio_latents", audio[0])
         state = _run_block(core.sub_blocks["after_denoise"], pipe, state)
     finally:
-        stream.close()
+        try:
+            long_scratch.close()
+        finally:
+            stream.close()
         diagnostics.streaming['dit'] = stream.stats_snapshot()
         pipe.update_components(**{component: None})
         del model, stream

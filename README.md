@@ -2,9 +2,15 @@
 
 [简体中文](README.zh-CN.md)
 
-Local MiniMax H3 video and stereo audio generation for NVIDIA RTX 50 GPUs.
-The CLI prepares upstream weights locally and runs four generation modes from
-one entry point.
+FastH3 RTX50 adapts FastH3 video and stereo audio generation for systems with
+limited RAM and VRAM. It supports NVIDIA RTX 50-series GPUs only. Components
+use a mix of BF16 and MXFP8 to keep memory usage low while balancing speed and
+output quality. The core kernels are written in CuTe DSL and can serve as a
+reference for learning and adapting the implementation. The CLI prepares
+upstream weights locally and runs all four generation modes.
+
+Performance work so far has focused on the DiT. The VAE and Qwen conditioning
+encoder have had limited tuning.
 
 ## Install on Windows
 
@@ -33,10 +39,12 @@ fasth3 prepare --models-dir models --task all --plan
 fasth3 prepare --models-dir models --task all --accept-model-license
 ```
 
-Use `--task r2va`, `f2va`, or `fl2va` for the shared Omni assets, or
-`--task t2va` for text generation. `--download-only` verifies upstream files and leaves
-conversion for a later run. The first complete preparation needs space for the
-source checkpoints and converted weights. Keep the model directory local.
+`--task t2va` and `--task fl2va` prepare the FastH3 T2VA text-to-video checkpoint.
+`--task f2va` and `--task r2va` prepare FastH3 Omni. To prepare the alternative
+FL2VA model, use `--task fl2va --model fasth3-omni-ref2va`.
+`--download-only` verifies upstream files and leaves conversion for a later run.
+The first complete preparation needs space for the source checkpoints and
+converted weights. Keep the model directory local.
 
 ## Generate
 
@@ -51,8 +59,13 @@ fasth3 fl2va --models-dir models --first-frame examples/first.png --last-frame e
 fasth3 r2va --models-dir models --reference image:examples/first.png --prompt "Use the orange ball and flat illustration style as references. Show the ball rolling gently across a simple tiled floor." --num-frames 124 --seed 4277 --output outputs/reference.mp4
 ```
 
-T2VA uses the FastH3 V2 text checkpoint. F2VA and FL2VA use Omni with
-first-frame or first/last-frame conditions. R2VA accepts ordered, repeated
+FL2VA defaults to the FastH3 T2VA text-to-video checkpoint. Add
+`--model fasth3-omni-ref2va` to the `fl2va` command to
+use the FastH3 Omni reference checkpoint with the same first and last frame
+inputs. The two models can handle motion, detail, and endpoint transitions
+differently from scene to scene. Test both with your own frames and prompt.
+
+F2VA uses Omni with a first-frame condition. R2VA uses Omni and accepts ordered, repeated
 `--reference image:PATH`, `video:PATH`, or `audio:PATH` values and requires at
 least one visual reference. Use `--prompt-file` to supply exact UTF-8 prompt
 text. FL2VA accepts frame counts of the form `17n + 5` in the 120–360
@@ -86,36 +99,65 @@ T2VA can produce patchy blur, particularly on faces and hair. The severity
 varies across generations, so quality is partly down to the seed and individual
 render.
 
-## Previous benchmark results
+F2VA and FL2VA can show mild blur when run with the FastH3 T2VA checkpoint. In a
+matched 5-second F2VA test with that checkpoint, switching the DiT from MXFP8 to
+BF16 made no visible improvement. The Omni reference checkpoint used by R2VA
+avoided this type of blur in our frame-control samples. F2VA already uses Omni.
+For FL2VA, select it with `--model fasth3-omni-ref2va`.
 
-Earlier 768p (1344×768), 24 fps demo runs at `6a5a30c` on Windows with an RTX 5080
-16 GB, a 10 GiB PyTorch allocator cap, and a 256 MiB device memory reserve. These are
-single-run historical measurements. Generation time covers local inference
-and export. End-to-end time also includes OpenH3-IR and any demo packaging.
-Host memory is the sampled process-tree peak. CUDA columns show the allocation
-peak and sampled reservation peak in GiB.
+## Demos and benchmark results
 
-| Mode | Input | Output | Generation (s) | End to end (s) | Host peak (GiB) | CUDA allocated / reserved (GiB) | Demo MP4 |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
-| T2VA | Text only | 5 s | 230.8 | 270.2 | 22.74 | 3.65 / 4.52 | |
-| T2VA | Text only | 10 s | 460.3 | 496.0 | 23.06 | 3.85 / 6.10 | |
-| T2VA | Text only | 15 s | 720.2 | 745.0 | 23.52 | 5.15 / 7.65 | |
-| F2VA | 1 first-frame image | 5 s | 236.5 | 278.4 | 28.42 | 3.66 / 4.52 | |
-| F2VA | 1 first-frame image | 10 s | 414.3 | 448.7 | 28.81 | 3.70 / 5.78 | |
-| F2VA | 1 first-frame image | 15 s | 673.7 | 705.1 | 29.27 | 4.77 / 7.34 | |
-| FL2VA | 2 images (first and last frames) | 5 s | 246.1 | 321.4 | 28.52 | 3.67 / 4.54 | |
-| FL2VA | 2 images (first and last frames) | 10 s | 456.3 | 518.6 | 28.89 | 3.71 / 5.92 | |
-| FL2VA | 2 images (first and last frames) | 15 s | 769.4 | 855.7 | 29.24 | 4.86 / 7.46 | |
-| R2VA | 1 reference image + 1 × 5 s video | 5 s | 513.7 | 603.6 | 28.93 | 3.74 / 6.36 | |
-| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1464.6 | 1524.2 | 30.22 | 5.56 / 9.29 | |
-| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2605.6 | 2746.9 | 31.09 | 7.88 / 8.73 | |
+Windows, RTX 5080 16 GB, 1344×768 at 24 fps, a 10 GiB PyTorch allocator cap,
+and a 256 MiB device memory reserve. Each row is one measured run. Generation
+includes local inference and export. End-to-end also includes OpenH3-IR and any
+packaging in that run. Rows using an existing rewritten prompt report generation
+time only and show a dash in the end-to-end column.
+Python memory lists process-tree working set / private
+commit. System memory lists physical used (total minus available) / system commit.
+Each host figure is a separate sampled peak during generation, in GiB.
+CUDA columns show peak allocation and sampled peak reservation. Demo MP4s use
+H.265 CRF 20. The release transcode is excluded from the timings.
 
-R2VA runtime and memory usage depend on both input video duration and output
-duration. The table uses equal durations. After alignment, the reference
-encoder consumed 107, 226, and 345 frames from the 5, 10, and 15 s inputs. The
-FL2VA demo runs rendered 124, 243, and 362 aligned frames, then conformed
-them to 120, 240, and 360 frames while preserving both endpoints. The
-362-frame run used a local demo wrapper.
+| Mode | Input | Output | Generation (s) | End to end (s) | Python memory (GiB) | System memory (GiB) | CUDA allocated / reserved (GiB) | Demo |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| T2VA | Text only | 5 s | 230.8 | 270.2 | 8.78 / 22.74 | 27.57 / 48.57 | 3.65 / 4.52 | [MP4](examples/demos/t2va-5s.mp4) |
+| T2VA | Text only | 10 s | 460.3 | 496.0 | 9.07 / 23.06 | 27.96 / 48.94 | 3.85 / 6.10 | [MP4](examples/demos/t2va-10s.mp4) |
+| T2VA | Text only | 15 s | 720.2 | 745.0 | 9.47 / 23.52 | 28.38 / 49.92 | 5.15 / 7.65 | [MP4](examples/demos/t2va-15s.mp4) |
+| F2VA | 1 first-frame image | 5 s | 236.5 | 278.4 | 16.86 / 28.42 | 35.50 / 54.51 | 3.66 / 4.52 | [MP4](examples/demos/f2va-5s.mp4) |
+| F2VA | 1 first-frame image | 10 s | 414.3 | 448.7 | 16.86 / 28.81 | 36.00 / 55.18 | 3.70 / 5.78 | [MP4](examples/demos/f2va-10s.mp4) |
+| F2VA | 1 first-frame image | 15 s | 673.7 | 705.1 | 16.86 / 29.27 | 35.70 / 55.76 | 4.77 / 7.34 | [MP4](examples/demos/f2va-15s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 5 s | 246.1 | 321.4 | 16.91 / 28.52 | 36.09 / 54.84 | 3.67 / 4.54 | [MP4](examples/demos/fl2va-5s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 10 s | 456.3 | 518.6 | 16.95 / 28.89 | 36.13 / 55.03 | 3.71 / 5.92 | [MP4](examples/demos/fl2va-10s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 15 s | 769.4 | 855.7 | 16.91 / 29.24 | 36.30 / 54.95 | 4.86 / 7.46 | [MP4](examples/demos/fl2va-15s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 5 s | 266.0 | — | 16.92 / 28.32 | 37.39 / 56.17 | 3.67 / 4.67 | [MP4](examples/demos/fl2va-t2va-5s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 10 s | 527.9 | — | 16.91 / 28.69 | 37.46 / 56.23 | 4.01 / 6.35 | [MP4](examples/demos/fl2va-t2va-10s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 15 s | 842.4 | — | 16.91 / 29.08 | 37.39 / 56.82 | 5.32 / 7.92 | [MP4](examples/demos/fl2va-t2va-15s.mp4) |
+| R2VA | 1 reference image + 1 × 5 s video | 5 s | 530.8 | 583.5 | 17.34 / 28.95 | 39.74 / 54.89 | 3.74 / 6.38 | [MP4](examples/demos/r2va-5s.mp4) |
+| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1506.4 | 1669.0 | 17.81 / 30.33 | 33.52 / 50.84 | 5.57 / 9.39 | [MP4](examples/demos/r2va-10s.mp4) |
+| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2280.7 | — | 18.19 / 31.19 | 33.86 / 51.84 | 8.17 / 9.88 | [MP4](examples/demos/r2va-15s.mp4) |
+
+R2VA runtime and memory depend on both input and output duration. The three
+character-replacement demos use the 0–5, 5–15 and 15–30 second segments of
+the short film, with equal input and output lengths and one Kimi identity image.
+The 10 s R2VA row is the baseline run. The 15 s row uses the reusable DiT workspace.
+FL2VA clips were conformed to 120, 240 and 360 frames while preserving both
+endpoints. A local wrapper generated the 362 aligned frames for the 15 s runs.
+
+**Chained short film** · [The Spare Moon (30 s)](examples/demos/the-spare-moon-30s.mp4) ·
+The last frame of a 15 s F2VA render starts a 15 s FL2VA continuation.
+Combined generation took 1442.0 s and end-to-end took 1555.8 s. Python memory
+peaked at 16.93 / 29.27 GiB, system memory at 36.20 / 55.76 GiB, and CUDA
+allocation / reservation at 4.88 / 7.58 GiB.
+
+### 480p speed tests
+
+Both runs produce 5 s at 832×480 and 24 fps and reuse the prompts from the
+corresponding 768p samples. Timings include generation and export.
+
+| Mode | Input | Generation (s) | Python memory (GiB) | System memory (GiB) | CUDA allocated / reserved (GiB) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| T2VA | Text only | 149.2 | 8.50 / 22.01 | 24.32 / 42.83 | 3.52 / 4.03 |
+| R2VA | 1 reference image + 1 × 5 s video | 186.8 | 17.08 / 27.90 | 32.95 / 48.71 | 3.56 / 4.09 |
 
 ## License
 
