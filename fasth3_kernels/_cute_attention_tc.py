@@ -91,7 +91,6 @@ def _attention_tc(Q: cute.Tensor, K: cute.Tensor, V: cute.Tensor, M: cute.Tensor
     async_copy = cute.make_copy_atom(cpasync.CopyG2SOp(), cutlass.BFloat16, num_bits_per_copy=128)
     p_layout = cute.make_layout((64, 16), stride=(24, 1))
     s_p = shared.allocate_tensor(cutlass.BFloat16, p_layout, byte_alignment=16)
-    s_p_residual = shared.allocate_tensor(cutlass.BFloat16, p_layout, byte_alignment=16)
     compute_threads = 128
     ready, free = init_ring(shared, tx, stages, 1, 4)
     visits = NK
@@ -164,11 +163,7 @@ def _attention_tc(Q: cute.Tensor, K: cute.Tensor, V: cute.Tensor, M: cute.Tensor
                                             probability = cute.math.exp2(scores[j, n] - peak, fastmath=True)
                                             row = warp_row + c_coord[j][0]
                                             col = n * 8 + c_coord[j][1]
-                                            rounded = probability.to(cutlass.BFloat16)
-                                            s_p[row, col] = rounded
-                                            # Recover most of the FP32 probability's lost
-                                            # precision using a second BF16 PV product.
-                                            s_p_residual[row, col] = (probability - rounded.to(cutlass.Float32)).to(cutlass.BFloat16)
+                                            s_p[row, col] = probability.to(cutlass.BFloat16)
                                             if cutlass.const_expr(j < 2):
                                                 total_0 += probability
                                             else:
@@ -179,19 +174,16 @@ def _attention_tc(Q: cute.Tensor, K: cute.Tensor, V: cute.Tensor, M: cute.Tensor
 
                                     cute.arch.sync_warp()
                                     p_fragment = cute.make_rmem_tensor((8,), cutlass.BFloat16)
-                                    residual_fragment = cute.make_rmem_tensor((8,), cutlass.BFloat16)
                                     for j in cutlass.range_constexpr(8):
                                         row = warp_row + a_coord[j][0]
                                         col = a_coord[j][1]
                                         p_fragment[j] = s_p[row, col]
-                                        residual_fragment[j] = s_p_residual[row, col]
                                     for n in cutlass.range_constexpr(16):
                                         for j in cutlass.range_constexpr(4):
                                             factor = rescale_0 if j < 2 else rescale_1
                                             accumulator[j, n] *= factor
                                             b_fragment[j] = s_v[key_row + b_coord[j][1], n * 8 + b_coord[j][0]]
                                         _mma_one(mma, accumulator[None, n], p_fragment, b_fragment)
-                                        _mma_one(mma, accumulator[None, n], residual_fragment, b_fragment)
                                     cute.arch.sync_warp()
                             arrive_warp(free, lane, stage, stages)
                             stage += 1
