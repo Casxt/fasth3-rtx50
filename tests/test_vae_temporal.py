@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from fasth3_pipeline.vae_temporal import (
-    _decode_chunks, _decode_clip_pairwise, _encode_video, _encoder_fusion_blocks,
+    _decode_chunks, _decode_clip_pairwise, _decode_rgb8, _encode_video, _encoder_fusion_blocks,
     _vae_encoder_fusion, decode_video_to_host, encode_references,
 )
 
@@ -154,6 +154,36 @@ def test_temporal_video_rgb_conversion_matches_released_truncation():
     state.set('latents', latent)
     state.set('num_frames', expected.shape[1])
     np.testing.assert_array_equal(decode_video_to_host(pipe, state).get('videos'), expected)
+
+
+@pytest.mark.parametrize('invalid', [float('nan'), float('inf'), -float('inf')])
+def test_temporal_video_rgb_rejects_nonfinite_before_clamp(invalid):
+    decoded = torch.full((1, 3, 1, 1, 1), invalid)
+    mean, std = torch.zeros((1, 3, 1, 1, 1)), torch.ones((1, 3, 1, 1, 1))
+    with pytest.raises(FloatingPointError, match='Non-finite decoded video'):
+        _decode_rgb8(decoded, mean, std)
+
+
+@pytest.mark.skipif(os.environ.get('FASTH3_TEST_CUDA') != '1', reason='requires a coordinated GPU window')
+@pytest.mark.parametrize('dtype', [torch.bfloat16, torch.float32])
+def test_cute_rgb8_matches_eager_rounding_on_strided_chunks(dtype):
+    from fasth3_platform import BudgetGuard
+
+    with BudgetGuard(), torch.no_grad():
+        mean = torch.tensor([.485, .456, .406], device='cuda').view(1, 3, 1, 1, 1)
+        std = torch.tensor([.229, .224, .225], device='cuda').view(1, 3, 1, 1, 1)
+        levels = torch.arange(256, device='cuda').reshape(1, 1, 1, 1, 256) / 255
+        x = (levels - mean) / std
+        below = torch.nextafter(x, torch.full_like(x, -torch.inf))
+        above = torch.nextafter(x, torch.full_like(x, torch.inf))
+        decoded = torch.cat((below, x, above), dim=2).repeat(2, 1, 1, 3, 1).to(dtype)[:, :, 1:, :, 1:]
+        eager = ((decoded.float() * std + mean).clamp(0, 1) * 255).to(torch.uint8)
+        expected = eager.permute(0, 2, 3, 4, 1).cpu().numpy()
+        np.testing.assert_array_equal(_decode_rgb8(decoded, mean, std), expected)
+        for invalid in (float('nan'), float('inf'), -float('inf')):
+            decoded[-1, -1, -1, -1, -1] = invalid
+            with pytest.raises(FloatingPointError, match='Non-finite decoded video'):
+                _decode_rgb8(decoded, mean, std)
 
 
 def test_spatial_tile_pair_keeps_batch_and_single_tail_in_stitch_order():

@@ -250,10 +250,7 @@ def decode_video_to_host(pipe, state, *, pair_tiles=False):
     result = None
     chunks, offset = [], 0
     for decoded in _decode_chunks(vae, z, pair_tiles=pair_tiles):
-        rgb = (decoded.float() * std).add_(mean).clamp_(0, 1)
-        if not bool(torch.isfinite(rgb).all()):
-            raise FloatingPointError('Non-finite decoded video before export')
-        host = rgb.mul_(255).to(torch.uint8).permute(0, 2, 3, 4, 1).contiguous().cpu().numpy()
+        host = _decode_rgb8(decoded, mean, std)
         if expected_frames is None:
             chunks.append(host)
         else:
@@ -264,8 +261,20 @@ def decode_video_to_host(pipe, state, *, pair_tiles=False):
                 raise RuntimeError('VAE emitted more frames than the requested aligned duration')
             result[:, offset:offset + count] = host
             offset += count
-        del rgb, host, decoded
+        del host, decoded
     if result is not None and offset != expected_frames:
         raise RuntimeError('VAE emitted fewer frames than the requested aligned duration')
     state.set('videos', np.concatenate(chunks, axis=1) if result is None else result)
     return state
+
+
+def _decode_rgb8(decoded, mean, std):
+    if (decoded.is_cuda and decoded.shape[1] == 3 and decoded.dtype in (torch.bfloat16, torch.float32)
+            and mean.dtype == std.dtype == torch.float32
+            and torch.cuda.get_device_capability(decoded.device) == (12, 0)):
+        from fasth3_kernels._cute_vae_rgb8 import rgb8_to_host
+        return rgb8_to_host(decoded, mean, std)
+    rgb = (decoded.float() * std).add_(mean)
+    if not bool(torch.isfinite(rgb).all()):
+        raise FloatingPointError('Non-finite decoded video before export')
+    return rgb.clamp_(0, 1).mul_(255).to(torch.uint8).permute(0, 2, 3, 4, 1).contiguous().cpu().numpy()
