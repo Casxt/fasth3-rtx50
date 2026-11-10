@@ -25,8 +25,3 @@ cutlass_python_cache/
 *.egg-info/
 dist/
 build/
-tools/p0/.cute-cache/
-tools/p0/tmp*/
-tools/p0/*-integrity.json
-tools/p0/doctor-result.json
-tools/p0/environment.json

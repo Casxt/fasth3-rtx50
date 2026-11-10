@@ -200,5 +200,5 @@ def load_vae_decoder(directory, overlay, device, guard, *, debug_checks=False):
         result = vae.load_state_dict(state, strict=False, assign=True)
         if set(result.missing_keys) != skipped or result.unexpected_keys:
             raise RuntimeError('VAE selective load did not cover all non-overlay tensors')
-        _install_targets(file, list(ffn_linears(vae)), guard, debug_checks)
+        _install_targets(file, targets, guard, debug_checks)
     return vae.eval()
