@@ -91,9 +91,10 @@ def _decode_row_major(packed, scales, gs, backend, dtype):
 
 def linear_nvfp4(x, packed, block_scales, global_scale=1.0, bias=None, *,
                  input_scale=None, pre_quant_scale=None, scale_layout="row-major", backend="cute", row_chunk=128,
-                 global_scale_mode="quantization"):
-    """BF16 dequantization + torch GEMM, at most row_chunk*N-input BF16 weights.
+                 global_scale_mode="quantization", decode_slab_bytes=0):
+    """BF16 dequantization and GEMM with bounded temporary weights.
 
+    The packed-scale path batches decoding within a slab without widening the GEMM.
     Input activation precision is preserved through smoothing, then BF16 GEMM.
     Not a quantized-activation/native FP4 performance claim. Bias added once.
     """
@@ -116,13 +117,33 @@ def linear_nvfp4(x, packed, block_scales, global_scale=1.0, bias=None, *,
             raise ValueError("input_scale must be [K] on input's device")
         x = x.float() / input_scale.float()
     x = x.to(torch.bfloat16)
-    scales = _row_scales(block_scales, packed.shape[0], packed.shape[1] // 8, scale_layout)
     out = torch.empty((*x.shape[:-1], packed.shape[0]), device=x.device, dtype=x.dtype)
-    for start in range(0, packed.shape[0], row_chunk):
-        end = min(start + row_chunk, packed.shape[0])
-        w = _decode_row_major(packed[start:end], scales[start:end], gs, backend, torch.bfloat16)
-        out[..., start:end] = torch.nn.functional.linear(x, w)
-        del w  # Permit same-stream allocator reuse before decoding the next chunk.
+    if decode_slab_bytes and backend == "cute" and scale_layout == "128x4" and row_chunk == 128:
+        if not packed.is_cuda:
+            raise ValueError("CuTe backend requires CUDA; use backend='torch' on CPU")
+        from ._cute_nvfp4 import launch_packed
+
+        scales = block_scales.contiguous()
+        if scales.dtype == torch.uint8:
+            scales = scales.view(torch.float8_e4m3fn)
+        scales = scales.view(math.ceil(packed.shape[0] / 128), -1)
+        slab_rows = max(128, decode_slab_bytes // (x.shape[-1] * 2 * 128) * 128)
+        for slab_start in range(0, packed.shape[0], slab_rows):
+            slab_end = min(slab_start + slab_rows, packed.shape[0])
+            slab_scales = scales[slab_start // 128:math.ceil(slab_end / 128)]
+            weight = launch_packed(packed[slab_start:slab_end].contiguous(), slab_scales, gs)
+            # Keep the original GEMM dimensions and BF16 output rounding.
+            for offset in range(0, len(weight), row_chunk):
+                end = min(offset + row_chunk, len(weight))
+                out[..., slab_start + offset:slab_start + end] = torch.nn.functional.linear(x, weight[offset:end])
+            del weight
+    else:
+        scales = _row_scales(block_scales, packed.shape[0], packed.shape[1] // 8, scale_layout)
+        for start in range(0, packed.shape[0], row_chunk):
+            end = min(start + row_chunk, packed.shape[0])
+            w = _decode_row_major(packed[start:end], scales[start:end], gs, backend, torch.bfloat16)
+            out[..., start:end] = torch.nn.functional.linear(x, w)
+            del w  # Permit same-stream allocator reuse before decoding the next chunk.
     if bias is not None:
         out += bias.to(out.dtype)
     return out

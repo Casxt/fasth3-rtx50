@@ -202,3 +202,19 @@ def test_cute_nvfp4_chunked_linear_real_gpu(gpu):
     expected = torch.nn.functional.linear(x * pre.to(x.dtype), nvfp4_oracle(p, s, 8.)) + bias
     actual = linear_nvfp4(x, p, s, 8., bias, pre_quant_scale=pre, row_chunk=17)
     torch.testing.assert_close(actual, expected, atol=.03125, rtol=.008)
+
+
+def test_cute_nvfp4_packed_slabs_preserve_chunked_linear_bits(gpu):
+    torch.manual_seed(7)
+    # The 385x80 matrix has a partial scale tile in both dimensions and a
+    # second slab whose row offset must be rebased before unpacking its scales.
+    packed = torch.randint(0, 256, (385, 40), dtype=torch.uint8, device=gpu)
+    scale = torch.rand(385, 5, device=gpu).to(torch.float8_e4m3fn)
+    scale = _swizzle(scale).to(torch.float8_e4m3fn).view(torch.uint8)
+    x = torch.randn(2, 3, 80, device=gpu, dtype=torch.bfloat16)
+    pre = torch.linspace(.5, 1.5, 80, device=gpu)
+    bias = torch.randn(385, device=gpu, dtype=torch.bfloat16)
+    options = dict(pre_quant_scale=pre, scale_layout="128x4")
+    expected = linear_nvfp4(x, packed, scale, 8., bias, **options)
+    actual = linear_nvfp4(x, packed, scale, 8., bias, decode_slab_bytes=48 << 10, **options)
+    assert torch.equal(actual.view(torch.uint8), expected.view(torch.uint8))

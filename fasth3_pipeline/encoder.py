@@ -127,7 +127,7 @@ class NVFP4Linear(nn.Module):
                             self.weight_global_scale, self.bias,
                             pre_quant_scale=getattr(self, 'pre_quant_scale', None),
                             scale_layout='128x4', backend=self.backend, row_chunk=128,
-                            global_scale_mode='quantization')
+                            global_scale_mode='quantization', decode_slab_bytes=16 << 20)
 
 
 class _DeviceDiscoveryHook:
