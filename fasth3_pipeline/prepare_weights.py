@@ -227,11 +227,15 @@ def _convert(root, source, raw_component, output_folder, profile):
 
 
 def _overlays(root, omni):
+    from .vae_mxfp8 import verify_vae_overlay
+
+    vae = _inside(root, root / SHARED.folder / 'vae')
     video_vae = _inside(root, root / SHARED.folder / 'vae-ffn-mxfp8.safetensors')
     if not video_vae.exists():
         from .export_vae_mxfp8 import main as export_vae
 
-        export_vae(['--vae', str(root / SHARED.folder / 'vae'), '--output', str(video_vae)])
+        export_vae(['--vae', str(vae), '--output', str(video_vae)])
+    verify_vae_overlay(vae, video_vae)
     if omni is not None:
         adaln = _inside(root, omni.parent / 'adaln-pdd8.safetensors')
         if not adaln.exists():

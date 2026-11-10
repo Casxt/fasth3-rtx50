@@ -425,7 +425,16 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
     if diagnostics.checkpoint("denoise", {"video": state.get("latents"), "audio": state.get("audio_latents")}):
         return diagnostics.stopped("denoise")
     guard("DiT released before decode")
-    load_local_components(pipe, ["vae", "audio_vae"], shared_components)
+    from .storage import INDEX
+    if vae_mxfp8 is not None and (shared_components / 'vae' / INDEX).is_file():
+        from .vae_mxfp8 import load_vae_decoder
+        vae = load_vae_decoder(shared_components / 'vae', vae_mxfp8, device, guard, debug_checks=debug_checks)
+        pipe.update_components(vae=vae)
+        del vae
+        load_local_components(pipe, ['audio_vae'], shared_components)
+        vae_mxfp8 = None  # The selective loader has already applied the overlay.
+    else:
+        load_local_components(pipe, ['vae', 'audio_vae'], shared_components)
     state = decode_output(blocks.sub_blocks['decode'], pipe, state, device, guard, 'cached', diagnostics,
                           vae_mxfp8=vae_mxfp8, debug_checks=debug_checks)
     guard("decode complete")
