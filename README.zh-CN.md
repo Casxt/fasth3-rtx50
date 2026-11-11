@@ -9,6 +9,16 @@ FastH3 RTX50 是面向内存和显存受限场景优化的 FastH3 项目，仅�
 
 目前的性能优化主要集中在 DiT，VAE 和 Qwen 条件编码器尚未深入调优。
 
+**建议使用编程 Agent 辅助安装、配置和执行。** 让 Agent 读取仓库内的
+[AGENTS.md](AGENTS.md)，其中包含依赖、权重准备、提示词增强、测试和排错说明。
+可以直接给 Agent 以下任务。
+
+```text
+先阅读 AGENTS.md，检查这台机器及已有的环境和模型文件，配置固定版本的依赖，
+为我选择的任务准备权重，并运行 README 中的示例。核对输出，分别报告耗时、
+Python 进程内存、全系统内存和显存占用。
+```
+
 ## Windows 安装
 
 安装 [uv](https://docs.astral.sh/uv/getting-started/installation/) 和兼容 CUDA 12.8 的

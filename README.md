@@ -12,6 +12,18 @@ upstream weights locally and runs all four generation modes.
 Performance work so far has focused on the DiT. The VAE and Qwen conditioning
 encoder have had limited tuning.
 
+**We recommend using a coding agent to set up and run this project.** Give the
+agent access to the repository and ask it to follow [AGENTS.md](AGENTS.md), which
+covers dependencies, weight preparation, prompt enhancement, tests and
+troubleshooting. A starting request is
+
+```text
+Read AGENTS.md. Check this machine and any existing environment and model files,
+configure the pinned dependencies, prepare the weights for my chosen task, and
+run the README example. Verify the output and report timing, Python process
+memory, system memory and GPU memory separately.
+```
+
 ## Install on Windows
 
 Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and an
