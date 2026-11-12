@@ -148,16 +148,27 @@ H.265 CRF 20. The release transcode is excluded from the timings.
 | FL2VA (T2VA) | 2 images (first and last frames) | 5 s | 266.0 | — | 16.92 / 28.32 | 37.39 / 56.17 | 3.67 / 4.67 | [MP4](examples/demos/fl2va-t2va-5s.mp4) |
 | FL2VA (T2VA) | 2 images (first and last frames) | 10 s | 527.9 | — | 16.91 / 28.69 | 37.46 / 56.23 | 4.01 / 6.35 | [MP4](examples/demos/fl2va-t2va-10s.mp4) |
 | FL2VA (T2VA) | 2 images (first and last frames) | 15 s | 842.4 | — | 16.91 / 29.08 | 37.39 / 56.82 | 5.32 / 7.92 | [MP4](examples/demos/fl2va-t2va-15s.mp4) |
-| R2VA | 1 reference image + 1 × 5 s video | 5 s | 530.8 | 583.5 | 17.34 / 28.95 | 39.74 / 54.89 | 3.74 / 6.38 | [MP4](examples/demos/r2va-5s.mp4) |
-| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1506.4 | 1669.0 | 17.81 / 30.33 | 33.52 / 50.84 | 5.57 / 9.39 | [MP4](examples/demos/r2va-10s.mp4) |
-| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2280.7 | — | 18.19 / 31.19 | 33.86 / 51.84 | 8.17 / 9.88 | [MP4](examples/demos/r2va-15s.mp4) |
+| R2VA | 1 reference image + 1 × 5 s video | 5 s | 496.3 | — | 17.41 / 28.92 | 34.93 / 53.26 | 3.73 / 6.38 | [MP4](examples/demos/r2va-5s.mp4) |
+| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1344.3 | — | 17.90 / 29.80 | 36.18 / 54.10 | 6.64 / 7.88 | [MP4](examples/demos/r2va-10s.mp4) |
+| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2258.0 | — | 18.34 / 30.64 | 35.76 / 54.76 | 8.49 / 8.74 | [MP4](examples/demos/r2va-15s.mp4) |
 
 R2VA runtime and memory depend on both input and output duration. The three
-character-replacement demos use the 0–5, 5–15 and 15–30 second segments of
-the short film, with equal input and output lengths and one Kimi identity image.
-The 10 s R2VA row is the baseline run. The 15 s row uses the reusable DiT workspace.
-FL2VA clips were conformed to 120, 240 and 360 frames while preserving both
-endpoints. A local wrapper generated the 362 aligned frames for the 15 s runs.
+character-replacement cases use the 0–5, 5–15 and 15–30 second segments of
+the short film, with equal input and output lengths and one Kimi identity image
+resized to a 512-pixel short edge. The three 768p R2VA rows were rerun with
+v0.1.1 defaults and all eight denoising steps, reusing the rewritten prompts.
+Generation includes inference, VAE decoding and export, and excludes PE and the
+H.265 CRF 20 transcode. Other modes and 480p results remain historical and were
+not rerun for v0.1.1.
+These R2VA runs use the production CLI directly: requested exports of
+120 / 240 / 360 frames are automatically aligned internally to 124 / 243 / 362
+frames and then exported at the requested count.
+NVML sampled whole-board GPU memory peaks for the 5 / 10 / 15 s R2VA runs were
+9.41 / 10.69 / 11.35 GiB, respectively. These include driver and other-process usage
+and differ from the CUDA allocated / reserved figures in the table.
+Historical FL2VA clips were conformed to 120, 240 and 360 frames while preserving
+both endpoints. The historical 15 s FL2VA samples used a local wrapper to generate
+362 aligned frames before conforming the export.
 
 **Chained short film** · [The Spare Moon (30 s)](examples/demos/the-spare-moon-30s.mp4) ·
 The last frame of a 15 s F2VA render starts a 15 s FL2VA continuation.
