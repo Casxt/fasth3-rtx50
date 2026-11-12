@@ -416,14 +416,16 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
                                encoder_hidden_states=prompt_embeds, timestep=times.to(device),
                                timestep_indices=indices.to(device), return_dict=False, **fields)
             diagnostics.forward_count += 1
-            video = plan.update(video, vp, "video", step, cv)
-            audio = plan.update(audio, ap, "audio", step, ca)
+            # Keep persistent latents out of transient attention slabs.
+            video.copy_(plan.update(video, vp, "video", step, cv))
+            audio.copy_(plan.update(audio, ap, "audio", step, ca))
             step_contract = dict(head_start=start, head_end=end) if is_pdd else dict(dmd2_rung=RUNGS[step])
             diagnostics.checkpoint(f"step-{step+1:02d}", {"video": video, "audio": audio,
                                    "video_prediction": vp, "audio_prediction": ap, "times": times,
                                    "timestep_indices": indices}, **step_contract)
             if step == 0 and diagnostics.checkpoint("first-denoise"):
                 return diagnostics.stopped("first-denoise")
+            del vp, ap
         state.set("latents", video[0])
         state.set("audio_latents", audio[0])
         state = _run_block(core.sub_blocks["after_denoise"], pipe, state)

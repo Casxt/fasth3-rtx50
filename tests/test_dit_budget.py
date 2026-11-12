@@ -188,6 +188,7 @@ def test_board_sample_failures_allow_cuda_fallback(monkeypatch, failure):
 @pytest.mark.parametrize('stop', ['install-failure', 'first-denoise', 'denoise', 'close-failure'])
 def test_runner_restores_budget_after_dit_release(monkeypatch, tmp_path, stop):
     from contextlib import nullcontext
+    import weakref
     import torch
     from diffusers.modular_pipelines.minimax_h3 import modular_blocks_minimax_h3 as official
     from fasth3_pipeline import encoder, long_video, runner
@@ -238,17 +239,37 @@ def test_runner_restores_budget_after_dit_release(monkeypatch, tmp_path, stop):
     monkeypatch.setattr(runner, '_clear_device', lambda device: released.append('clear'))
     monkeypatch.setattr(long_video, 'allow_released_maximum', lambda pipe: None)
     monkeypatch.setattr(encoder, 'load_text_encoder', lambda *args, **kwargs: (object(), qwen))
-    model = lambda **kwargs: (torch.zeros_like(kwargs['hidden_states']),
-                              torch.zeros_like(kwargs['audio_hidden_states']))
+    predictions = []
+    latent_storage = []
+    reference_plan = DMD2Plan()
+    expected = {}
+    def model(**kwargs):
+        # A completed step's predictions must not pin CUDA allocator segments
+        # while the next forward computes its attention workspace.
+        assert all(ref() is None for pair in predictions for ref in pair)
+        states = (kwargs['hidden_states'], kwargs['audio_hidden_states'])
+        storage = tuple(value.untyped_storage().data_ptr() for value in states)
+        if latent_storage:
+            assert storage == latent_storage[0]
+        latent_storage.append(storage)
+        for modality, value in zip(('video', 'audio'), states):
+            torch.testing.assert_close(value, expected[modality], atol=0, rtol=0)
+        step = len(predictions) + 1
+        video = torch.full_like(states[0], .0625 * step, dtype=torch.bfloat16)
+        audio = torch.full_like(states[1], -.03125 * step, dtype=torch.bfloat16)
+        predictions.append((weakref.ref(video), weakref.ref(audio)))
+        return video, audio
     monkeypatch.setattr(runner, 'load_transformer', lambda *args, **kwargs: (model, dit))
     def prepare(core, pipe, state, task):
         for key, value in dict(
-                prompt_embeds=torch.zeros(1, 1, 3), latents=torch.zeros(1, 3),
-                audio_latents=torch.zeros(1, 3), token_tags=torch.zeros(3),
+                prompt_embeds=torch.zeros(1, 1, 3), latents=torch.full((1, 3), .5),
+                audio_latents=torch.full((1, 3), -.25), token_tags=torch.zeros(3),
                 position_ids=torch.zeros(3, 3), video_indices=torch.tensor([1]),
                 audio_indices=torch.tensor([2]), text_indices=torch.tensor([0]),
                 num_condition_video_rows=0, num_condition_audio_rows=0).items():
             state.set(key, value)
+        expected.update(video=state.get('latents')[None].clone(),
+                        audio=state.get('audio_latents')[None].clone())
         return state
     monkeypatch.setattr(runner, '_prepare_denoising', prepare)
     monkeypatch.setattr(runner, 'layout_from_state', lambda *args, **kwargs: object())
@@ -258,8 +279,22 @@ def test_runner_restores_budget_after_dit_release(monkeypatch, tmp_path, stop):
             raise RuntimeError('install failed')
         return {}
     monkeypatch.setattr(runner, 'install_vsa', install)
+    checked_predictions = []
+    def checkpoint(phase, tensors=None, **kwargs):
+        if phase.startswith('step-'):
+            video, audio = predictions[-1]
+            assert tensors['video_prediction'] is video()
+            assert tensors['audio_prediction'] is audio()
+            assert video() is not None and audio() is not None
+            step = len(checked_predictions)
+            for modality, prediction in (('video', video), ('audio', audio)):
+                expected[modality] = reference_plan.update(expected[modality], prediction(), modality, step)
+                torch.testing.assert_close(tensors[modality], expected[modality], atol=0, rtol=0)
+            assert tuple(tensors[name].untyped_storage().data_ptr() for name in ('video', 'audio')) == latent_storage[0]
+            checked_predictions.append(phase)
+        return phase == stop
     diagnostics = SimpleNamespace(streaming={}, debug_checks=False, forward_count=0,
-        checkpoint=lambda phase, *args, **kwargs: phase == stop,
+        checkpoint=checkpoint,
         stopped=lambda phase: {'stopped_after': phase})
     kwargs = dict(task='t2va', base_model=tmp_path, transformer_path=tmp_path,
                   text_encoder_path=tmp_path, prompt='test', device='cpu', guard=guard,
@@ -276,3 +311,7 @@ def test_runner_restores_budget_after_dit_release(monkeypatch, tmp_path, stop):
     assert pipe.transformer is None
     assert diagnostics.streaming['dit']['closed']
     assert released[-1] == 'clear'
+    expected_forwards = 0 if stop == 'install-failure' else 1 if stop == 'first-denoise' else 8
+    assert len(predictions) == len(checked_predictions) == expected_forwards
+    assert len(latent_storage) == expected_forwards
+    assert all(ref() is None for pair in predictions for ref in pair)

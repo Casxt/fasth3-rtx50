@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fasth3-rtx50"
-version = "0.1.0"
+version = "0.1.1"
 description = "Memory-bounded MiniMax H3 video generation on NVIDIA RTX 50 GPUs"
 readme = "README.md"
 license = "Apache-2.0"
