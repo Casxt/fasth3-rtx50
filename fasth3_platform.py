@@ -6,7 +6,8 @@ allocator, not arbitrary CUDA libraries; keep non-PyTorch probes tiny as well.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from contextlib import contextmanager
+from dataclasses import asdict, dataclass, replace
 import os
 import platform
 import shutil
@@ -105,6 +106,122 @@ def check_gpu_headroom(budget: GPUBudget) -> dict:
             "allocated_bytes": torch.cuda.memory_allocated(budget.device),
             "reserved_bytes": torch.cuda.memory_reserved(budget.device),
             "peak_allocated_bytes": torch.cuda.max_memory_allocated(budget.device)}
+
+
+def _normalize_gpu_uuid(value):
+    """Match CUDA UUID strings/objects/raw bytes to NVML's GPU-prefixed UUIDs."""
+    import re
+
+    raw = getattr(value, 'bytes', value)
+    if isinstance(raw, (bytes, bytearray, memoryview)):
+        if len(raw) == 16:
+            return bytes(raw).hex()
+        value = bytes(raw).decode('ascii')
+    text = str(value).strip().strip('\0').lower()
+    canonical = re.search(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9a-f]{32}', text)
+    if canonical:
+        return canonical.group().replace('-', '')
+    return text.removeprefix('gpu-').replace('-', '')
+
+
+def _query_gpu_board_memory(device: int, receipt=None):
+    """One bounded NVML-backed sample, matched to the CUDA device UUID."""
+    import csv
+    import math
+    import subprocess
+    import torch
+
+    try:
+        get_properties = getattr(torch.cuda, 'get_device_properties', None)
+        uuid = getattr(get_properties(device), 'uuid', None) if get_properties is not None else None
+        selector = _normalize_gpu_uuid(uuid) if uuid is not None else None
+        by_index = False
+        visible = os.environ.get('CUDA_VISIBLE_DEVICES')
+        if selector is None and visible is not None:
+            selector = visible.split(',')[device].strip()
+            by_index = selector.isdigit()
+            if not by_index:
+                selector = _normalize_gpu_uuid(selector)
+        if selector is None:
+            selector = str(device)
+            by_index = True
+        if receipt is not None:
+            receipt['board_query_selector'] = selector
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=index,uuid,memory.used,memory.total',
+             '--format=csv,noheader,nounits'],
+            capture_output=True, text=True, check=True, timeout=2,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        candidates = []
+        for row in csv.reader(result.stdout.splitlines()):
+            if len(row) != 4:
+                continue
+            index, board_uuid, used, total = (value.strip() for value in row)
+            matches = (index == selector if by_index else
+                       _normalize_gpu_uuid(board_uuid).startswith(selector))
+            if matches:
+                used, total = float(used) * MIB, float(total) * MIB
+                if math.isfinite(used) and math.isfinite(total) and 0 <= used <= total:
+                    candidates.append((int(used), int(total)))
+        if len(candidates) == 1:
+            return candidates[0]
+        if receipt is not None:
+            receipt['board_query_error'] = ('GPU selector did not match a valid memory row' if not candidates else
+                                            'GPU selector matched multiple memory rows')
+    except (OSError, subprocess.SubprocessError, AttributeError, RuntimeError,
+            ValueError, IndexError, UnicodeError) as error:
+        if receipt is not None:
+            receipt['board_query_error'] = f'{type(error).__name__}: {error}'
+    return None
+
+
+@contextmanager
+def dit_gpu_budget(guard, receipt: dict):
+    """Temporarily tighten DiT's allocator cap using whole-board occupancy.
+
+    The caller exits this context after releasing DiT buffers, including on an
+    early diagnostic stop. CPU and lightweight mocked guards remain no-ops.
+    """
+    previous = getattr(guard, 'budget', None)
+    if not isinstance(previous, GPUBudget):
+        yield
+        return
+    import torch
+
+    device = previous.device
+    torch.cuda.synchronize(device)
+    torch.cuda.empty_cache()
+    free, total = torch.cuda.mem_get_info(device)
+    reserved = torch.cuda.memory_reserved(device)
+    board = _query_gpu_board_memory(device, receipt)
+    used, board_total = board if board is not None else (total - free, total)
+    external = max(0, used - reserved)
+    target, margin = 23 * GIB // 2, 128 * MIB
+    reserve = max(previous.reserve_bytes, 256 * MIB)
+    get_fraction = getattr(torch.cuda, 'get_per_process_memory_fraction', None)
+    previous_fraction = (get_fraction(device) if get_fraction is not None else
+                         previous.budget_bytes / total)
+    cap = min(previous.budget_bytes, int(previous_fraction * total), 10 * GIB,
+              min(target, board_total - reserve) - external - margin,
+              reserved + free - reserve)
+    receipt.update(source='nvidia-smi' if board is not None else 'cuda.mem_get_info',
+                   board_used_bytes=used, external_bytes=external,
+                   allocator_cap_bytes=cap, previous_allocator_cap_bytes=int(previous_fraction * total),
+                   target_bytes=target, additional_margin_bytes=margin,
+                   reserve_bytes=reserve, restored=False)
+    if cap <= 0 or torch.cuda.memory_allocated(device) > cap:
+        raise MemoryError('DiT cannot fit within the whole-board GPU memory target')
+    try:
+        torch.cuda.set_per_process_memory_fraction(cap / total, device)
+        guard.budget = replace(previous, budget_bytes=cap, free_bytes=free,
+                               total_bytes=total, reserve_bytes=reserve)
+        yield
+    finally:
+        try:
+            torch.cuda.set_per_process_memory_fraction(previous_fraction, device)
+            receipt['restored'] = True
+        finally:
+            guard.budget = previous
 
 
 class BudgetGuard:

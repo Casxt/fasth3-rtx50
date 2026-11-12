@@ -110,17 +110,18 @@ def _fused_head_projections(attn, flat, first, last, cache):
     from .mxfp8_linear import _native_validated_gemm
 
     layers = (attn.to_q, attn.to_k, attn.to_v)
+    chunk_tokens = layers[0].chunk_tokens
     lo, hi = first * 128, last * 128
     if (hi - lo != 512 or flat.shape[1] != 5376 or
-            not all(layer.packed_scales and layer.chunk_tokens == 512 and not layer.debug_checks and
+            not all(layer.packed_scales and layer.chunk_tokens == chunk_tokens and not layer.debug_checks and
                     layer.bias is None for layer in layers)):
         return None
     weight = MXFP8Tensor(torch.cat([layer.weight[lo:hi] for layer in layers]),
                          torch.cat([layer.weight_scale[lo // 32:hi // 32] for layer in layers]),
                          flat.shape[1])
     result = flat.new_empty((len(flat), 3 * (hi - lo)))
-    for begin in range(0, len(flat), 512):
-        part = slice(begin, begin + 512)
+    for begin in range(0, len(flat), chunk_tokens):
+        part = slice(begin, begin + chunk_tokens)
         activation = cache.get(begin) if cache is not None else None
         if activation is None:
             activation = quantize_mxfp8_cute(flat[part], check_finite=False)
@@ -182,10 +183,12 @@ def _cache_qkv_activations(attn, flat, budget):
     return cache
 
 
-def _project_packed_attention(layer, values, scales, flat):
+def _project_packed_attention(layer, values, scales, flat, *, output=None):
     from fasth3_kernels.mxfp8 import MXFP8Tensor
 
-    result = flat.new_empty((len(flat), layer.out_features))
+    result = flat.new_empty((len(flat), layer.out_features)) if output is None else output
+    if result.shape != (len(flat), layer.out_features) or result.dtype != flat.dtype or result.device != flat.device:
+        raise ValueError('Packed attention projection output differs from input geometry')
     # MXFP8Linear takes the BF16 shape/dtype plus its already-quantized operand.
     # With packed supplied the template is never read by the GEMM.
     template = flat.new_empty((1, layer.in_features))
@@ -229,25 +232,60 @@ class _PinnedHeadOutput:
 
 
 class LongVideoScratch:
-    """Keep the host staging and fixed-shape CUDA buffers for one long request."""
+    """Own reusable activation and attention-output buffers for one request."""
 
     def __init__(self):
         self.host = self.pinned = None
         self.packed = self.modulated = None
+        self.values = self.scales = None
+        self.resident_output_available = True
+        self.policy = None
 
-    def prepare_cuda(self, shape, device, budget):
+    def prepare_cuda(self, shape, device, budget, *, output_width=None, workspace_bytes=0):
+        """Allocate the two BF16 states, reserving room for lazy attention output."""
         # Two BF16 matrices: the residual sequence and its disposable AdaLN input.
         required = 4 * shape[0] * shape[1] * shape[2]
-        if required > budget.available_bytes():
+        output_bytes = 0
+        if output_width is not None:
+            if shape[0] != 1 or output_width <= 0 or output_width % 32:
+                raise ValueError('Resident attention output requires one sequence and aligned head width')
+            output_bytes = shape[1] * (output_width + output_width // 32)
+        if self.packed is not None:
+            if self.packed.shape != shape or self.packed.device != torch.device(device):
+                raise ValueError('Long-video CUDA scratch requires fixed request geometry')
+            return required
+        if required + output_bytes + workspace_bytes > budget.available_bytes():
             return 0
         try:
             self.packed = torch.empty(shape, device=device, dtype=torch.bfloat16)
             self.modulated = torch.empty_like(self.packed)
         except torch.OutOfMemoryError:
             self.packed = self.modulated = None
+            self.values = self.scales = None
             torch.cuda.empty_cache()
             return 0
         return required
+
+    def acquire_output(self, flat, width):
+        shape = (len(flat), width)
+        if width <= 0 or width % 32:
+            raise ValueError('Resident attention output width must be divisible by 32')
+        if self.values is None:
+            # Commit both buffers together. A failed allocation leaves no partial
+            # request state, allowing the caller to choose host staging safely.
+            values = torch.empty(shape, device=flat.device, dtype=torch.float8_e4m3fn)
+            scales = torch.empty((len(flat), width // 32), device=flat.device, dtype=torch.uint8)
+            self.values, self.scales = values, scales
+        elif self.values.shape != shape or self.values.device != flat.device:
+            raise ValueError('Resident attention scratch requires fixed request geometry')
+        return self.values, self.scales
+
+    def refuse_resident_output(self):
+        self.values = self.scales = None
+        self.resident_output_available = False
+        if self.policy is not None:
+            self.policy['attention_output_runtime'] = 'host'
+            self.policy['attention_output_fallback'] = 'resident allocation refused'
 
     def acquire(self, flat, width, columns):
         shape = (len(flat), width)
@@ -267,6 +305,8 @@ class LongVideoScratch:
         finally:
             self.pinned = self.host = None
             self.packed = self.modulated = None
+            self.values = self.scales = None
+            self.policy = None
 
 
 def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_group=4):
@@ -281,12 +321,23 @@ def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_grou
     cache_budget = processor.cache_bytes
     cache = _cache_qkv_activations(attn, flat, cache_budget) if cache_budget else None
     pinned = None
+    scratch = processor.host_scratch
+    if packed_output and scratch is not None:
+        packed_output = scratch.resident_output_available
     if packed_output:
         from fasth3_kernels.mxfp8 import quantize_mxfp8_cute
-        values = flat.new_empty((len(flat), width), dtype=torch.float8_e4m3fn)
-        scales = flat.new_empty((len(flat), width // 32), dtype=torch.uint8)
-    else:
-        scratch = processor.host_scratch or LongVideoScratch()
+        if scratch is not None:
+            try:
+                values, scales = scratch.acquire_output(flat, width)
+            except torch.OutOfMemoryError:
+                scratch.refuse_resident_output()
+                torch.cuda.empty_cache()
+                packed_output = False
+        else:
+            values = flat.new_empty((len(flat), width), dtype=torch.float8_e4m3fn)
+            scales = flat.new_empty((len(flat), width // 32), dtype=torch.uint8)
+    if not packed_output:
+        scratch = scratch or LongVideoScratch()
         host, pinned = scratch.acquire(flat, width, heads_per_group * 128)
     try:
         for first in range(0, attn.heads, heads_per_group):
@@ -311,10 +362,13 @@ def grouped_attention(processor, attn, hidden_states, rotary_emb, heads_per_grou
     del cache
     out_layer = attn.to_out[0]
     if packed_output:
-        return attn.to_out[1](_project_packed_attention(out_layer, values, scales, flat).unsqueeze(0))
+        # Head groups have finished reading the disposable modulation input.
+        output = flat if processor.reuse_input and flat.shape[1] == out_layer.out_features else None
+        return attn.to_out[1](_project_packed_attention(out_layer, values, scales, flat, output=output).unsqueeze(0))
     # All heads have finished reading the disposable modulated block input.
     # The residual lives in a different tensor, so the projection can fill this buffer.
-    result = flat if processor.reuse_input else flat.new_empty((len(flat), out_layer.out_features))
+    result = (flat if processor.reuse_input and flat.shape[1] == out_layer.out_features
+              else flat.new_empty((len(flat), out_layer.out_features)))
     for begin in range(0, len(flat), 2048):
         part = slice(begin, begin + 2048)
         out_layer(host[part].to(flat.device), output=result[part])
@@ -370,6 +424,9 @@ def _ffn_residual(block, states, shift, scale, gate, indices):
 def _block_forward(block, hidden_states, temb, adaln_indices, rotary_emb, attention_mask=None):
     sa, ca, ga, sf, cf, gf = block.adaln_proj(temb)
     scratch = block._long_scratch
+    if (scratch is not None and scratch.modulated is not None and
+            scratch.modulated.untyped_storage().data_ptr() == hidden_states.untyped_storage().data_ptr()):
+        raise ValueError('Long-video modulation scratch must be separate from the residual')
     modulated = _modulate(hidden_states, block.norm1, sa, ca, adaln_indices,
                           out=scratch.modulated if scratch is not None else None)
     attn = block.attn(modulated, rotary_emb, attention_mask)

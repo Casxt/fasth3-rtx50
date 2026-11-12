@@ -12,6 +12,10 @@ upstream weights locally and runs all four generation modes.
 Performance work so far has focused on the DiT. The VAE and Qwen conditioning
 encoder have had limited tuning.
 
+Main DiT block weights use one reusable GPU arena by default. For long sequences,
+MXFP8 attention outputs stay on the GPU when the memory budget permits; a host
+staging path is selected when the estimated workspace does not fit.
+
 **We recommend using a coding agent to set up and run this project.** Give the
 agent access to the repository and ask it to follow [AGENTS.md](AGENTS.md), which
 covers dependencies, weight preparation, prompt enhancement, tests and

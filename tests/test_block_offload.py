@@ -726,3 +726,294 @@ def test_closed_context_unsafe_partition_and_pin_budget_rejected():
     with pytest.raises(RuntimeError, match="closed"):
         with stream.execution():
             pass
+
+
+@pytest.fixture
+def fake_cuda_arena(monkeypatch):
+    """Run real read-ahead, packing and model hooks on CPU, recording CUDA order."""
+    from contextlib import nullcontext
+    timeline = []
+    class Event:
+        def __init__(self, **kwargs):
+            pass
+        def record(self, stream):
+            timeline.append(('record', stream, self))
+        def synchronize(self):
+            timeline.append(('synchronize_event', self))
+        def query(self):
+            return True
+        def elapsed_time(self, other):
+            return 0.
+    class Stream:
+        def __init__(self, **kwargs):
+            pass
+        def wait_event(self, event):
+            timeline.append(('wait', self, event))
+        def synchronize(self):
+            timeline.append(('synchronize_stream', self))
+    compute = Stream()
+    original_empty = torch.empty
+    def empty(*args, **kwargs):
+        if torch.device(kwargs.get('device') or 'cpu').type == 'cuda':
+            kwargs['device'] = 'cpu'
+            timeline.append(('allocate', args[0]))
+        kwargs.pop('pin_memory', None)
+        return original_empty(*args, **kwargs)
+    monkeypatch.setattr(torch, 'empty', empty)
+    monkeypatch.setattr(torch.Tensor, 'record_stream', lambda tensor, stream: timeline.append(('use', stream)))
+    monkeypatch.setattr(torch.cuda, 'Event', Event)
+    monkeypatch.setattr(torch.cuda, 'Stream', Stream)
+    monkeypatch.setattr(torch.cuda, 'stream', lambda stream: nullcontext())
+    monkeypatch.setattr(torch.cuda, 'current_stream', lambda device: compute)
+    monkeypatch.setattr(torch.cuda, 'mem_get_info', lambda device: (16*1024**3, 24*1024**3))
+    monkeypatch.setattr(torch.cuda, 'memory_allocated', lambda device: 0)
+    monkeypatch.setattr(torch.cuda, 'memory_reserved', lambda device: 0)
+    monkeypatch.setattr(torch.cuda, 'memory_stats', lambda device: {})
+    # Any missing CUDA interception must fail instead of initializing a driver.
+    monkeypatch.setattr(torch.cuda, '_lazy_init', lambda: pytest.fail('CPU test initialized CUDA'))
+    return timeline, compute
+
+
+class MixedArenaBlock(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.weight = nn.Parameter(torch.randn(3, 3).bfloat16())
+        self.bias = nn.Parameter(torch.randn(3))
+        self.register_buffer('gain', torch.tensor(0.5, dtype=torch.float64))
+        self.fail = False
+    def forward(self, x):
+        result = nn.functional.linear(x, self.weight.float(), self.bias) * self.gain.float()
+        if self.fail:
+            raise ValueError('block failure')
+        return result
+
+
+def make_fixed_arena_stream(**kwargs):
+    model = nn.Sequential(nn.Linear(3, 3), MixedArenaBlock(), MixedArenaBlock(), nn.Linear(3, 3))
+    reference = copy.deepcopy(model)
+    store = ReadIntoStore(model)
+    stream = BlockStreamedWeights(model, store, 'cuda', groups=['0', '1', '2', '3'],
+                                  fixed_arena_groups=['1', '2'], cpu_readahead=True,
+                                  max_pinned_bytes=4*37, **kwargs)
+    return model, reference, store, stream
+
+
+def test_fixed_arena_lazy_reuse_across_forwards_and_copy_compute_handoff(fake_cuda_arena):
+    timeline, compute = fake_cuda_arena
+    model, reference, store, stream = make_fixed_arena_stream(max_resident_bytes=1000)
+    observations = []
+    def observe(module, args, output):
+        group = next(str(i) for i, child in enumerate(model) if child is module)
+        observations.append((group, stream.fixed_arena, stream.stats['resident_bytes']))
+        if group in ('1', '2'):
+            assert module.weight.dtype == torch.bfloat16
+            assert module.bias.dtype == torch.float32 and module.gain.dtype == torch.float64
+            assert module.weight.data_ptr() == stream.fixed_arena.data_ptr()
+            assert module.bias.data_ptr() - module.weight.data_ptr() == 256
+            assert module.gain.data_ptr() - module.weight.data_ptr() == 512
+    handles = [child.register_forward_hook(observe) for child in model]
+    x = torch.randn(2, 3)
+    try:
+        with stream.execution(), torch.no_grad():
+            for _ in range(3):
+                torch.testing.assert_close(model(x), reference(x), atol=0, rtol=0)
+            stats = stream.stats_snapshot()
+            assert stats['fixed_arena_allocations'] == 1
+            assert stats['fixed_arena_reuses'] == 5
+            assert stats['fixed_arena_bytes'] == stream.fixed_arena_capacity == 520
+            assert stats['resident_peak_bytes'] <= 1000
+            # At the final ordinary group, unbound main backing is still held
+            # and charged exactly once along with the ordinary packed group.
+            assert stats['resident_bytes'] == 520 + stream.sizes[3]
+        assert observations[0] == ('0', None, stream.sizes[0])
+        arenas = [arena for group, arena, _ in observations if group in ('1', '2')]
+        assert all(arena is arenas[0] for arena in arenas)
+        assert all(resident == 520 for group, _, resident in observations if group in ('1', '2'))
+        assert stream.fixed_arena is None and stream.fixed_arena_done is None
+        assert all_meta(model) and stream.stats_snapshot()['resident_bytes'] == 0
+        assert stream.stats_snapshot()['last_cuda_capacity']['required_bytes'] == stream.sizes[3]
+        # Every overwrite is preceded by the compute-done event; every demand
+        # then waits on its new copy-ready event before exposing weights to use.
+        overwrite_waits = [(i, event) for i, (kind, *rest) in enumerate(timeline)
+                           if kind == 'wait' for owner, event in [rest] if owner is stream.copy_stream]
+        assert len(overwrite_waits) == 5
+        for position, done in overwrite_waits:
+            assert ('record', compute, done) in timeline[:position]
+            following = timeline[position+1:]
+            next_use = next(i for i, item in enumerate(following) if item == ('use', compute))
+            ready_wait = [item for item in following[:next_use] if item[0] == 'wait' and item[1] is compute]
+            assert ready_wait
+            assert ('record', stream.copy_stream, ready_wait[-1][2]) in following[:next_use]
+        assert any(item[0] == 'synchronize_event' for item in timeline)
+    finally:
+        for handle in handles:
+            handle.remove()
+        stream.close()
+
+
+@pytest.mark.parametrize('failure', ['guard', 'read', 'block', 'start'])
+def test_fixed_arena_failure_cleanup_and_retry(fake_cuda_arena, failure):
+    refused = False
+    def guard(phase):
+        if refused and phase == ('block execution start' if failure == 'start' else 'block arena:2'):
+            raise MemoryError('guard failure')
+    model, reference, store, stream = make_fixed_arena_stream(guard=guard)
+    if failure in ('guard', 'start'):
+        refused = True
+    elif failure == 'read':
+        store.fail = '2.bias'
+    else:
+        model[1].fail = True
+    expected = {'guard': MemoryError, 'start': MemoryError, 'read': OSError, 'block': ValueError}[failure]
+    try:
+        with pytest.raises(expected):
+            model(torch.ones(2, 3))
+        assert all_meta(model) and not stream.running and not stream.in_forward
+        assert stream.fixed_arena is None and stream.fixed_arena_owner is None
+        assert stream.stats_snapshot()['resident_bytes'] == 0
+        assert not stream.loaded and not stream.ready
+        assert stream.reader is None or not stream.reader.pending
+        refused = False
+        store.fail = None
+        model[1].fail = False
+        torch.testing.assert_close(model(torch.ones(2, 3)), reference(torch.ones(2, 3)), atol=0, rtol=0)
+        assert all_meta(model) and stream.fixed_arena is not None
+    finally:
+        stream.close()
+
+
+def test_fixed_arena_survives_successful_normal_forwards_until_close(fake_cuda_arena):
+    model, reference, _, stream = make_fixed_arena_stream(max_resident_bytes=1000)
+    x = torch.randn(2, 3)
+    backing = None
+    try:
+        for _ in range(3):
+            torch.testing.assert_close(model(x), reference(x), atol=0, rtol=0)
+            if backing is None:
+                backing = stream.fixed_arena
+            assert stream.fixed_arena is backing
+            assert stream.fixed_arena_owner is None
+            assert all_meta(model) and not stream.running
+            assert stream.stats_snapshot()['resident_bytes'] == stream.fixed_arena_capacity
+        assert stream.stats_snapshot()['fixed_arena_allocations'] == 1
+        assert stream.stats_snapshot()['fixed_arena_reuses'] == 5
+    finally:
+        stream.close()
+    assert stream.fixed_arena is None and stream.fixed_arena_done is None
+    assert stream.stats_snapshot()['resident_bytes'] == stream.stats_snapshot()['fixed_arena_bytes'] == 0
+
+
+def test_fixed_arena_retained_backing_is_dropped_after_next_root_guard_failure(fake_cuda_arena):
+    refused = False
+    def guard(phase):
+        if refused and phase == 'block execution start':
+            raise MemoryError('next request guard')
+    model, _, _, stream = make_fixed_arena_stream(guard=guard)
+    try:
+        model(torch.ones(2, 3))
+        assert stream.fixed_arena is not None
+        refused = True
+        with pytest.raises(MemoryError, match='next request guard'):
+            model(torch.ones(2, 3))
+        assert stream.fixed_arena is None and all_meta(model)
+        assert stream.stats_snapshot()['resident_bytes'] == 0
+        assert not stream.in_forward and not stream.running
+    finally:
+        stream.close()
+
+
+@pytest.mark.parametrize('failure', ['copy_sync', 'harvest', 'reader_drain'])
+def test_fixed_arena_cleanup_failure_drops_backing(fake_cuda_arena, monkeypatch, failure):
+    model, _, _, stream = make_fixed_arena_stream()
+    try:
+        model(torch.ones(2, 3))
+        assert stream.fixed_arena is not None
+        target, method = {
+            'copy_sync': (stream.copy_stream, 'synchronize'),
+            'harvest': (stream, '_harvest'),
+            'reader_drain': (stream.reader, 'drain'),
+        }[failure]
+        original = getattr(target, method)
+        def fail(*args, **kwargs):
+            raise OSError('cleanup failure')
+        monkeypatch.setattr(target, method, fail)
+        with pytest.raises(OSError, match='cleanup failure'):
+            stream._end(keep_fixed_arena=True)
+        assert stream.fixed_arena is None and stream.fixed_arena_done is None
+        assert all_meta(model) and stream.stats['resident_bytes'] == 0
+        assert not stream.running and not stream.loaded and not stream.ready
+        monkeypatch.setattr(target, method, original)
+    finally:
+        stream.close()
+
+
+def test_fixed_arena_cannot_overwrite_an_active_parent(fake_cuda_arena):
+    model = Parent()
+    stream = BlockStreamedWeights(model, ReadIntoStore(model), 'cuda',
+                                  groups=[WeightGroup('parent', ('',)), 'a', 'b'],
+                                  fixed_arena_groups=['parent', 'a'], cpu_readahead=True)
+    try:
+        with pytest.raises(RuntimeError, match='still belongs to an active group'):
+            model(torch.ones(1, 3, dtype=torch.float64))
+        assert all_meta(model) and stream.fixed_arena is None
+        assert not stream.running and stream.stats_snapshot()['resident_bytes'] == 0
+    finally:
+        stream.close()
+
+
+def test_failed_block_does_not_speculatively_load_next_group():
+    model = nn.Sequential(MixedArenaBlock(), MixedArenaBlock())
+    store = ReadIntoStore(model)
+    stream = BlockStreamedWeights(model, store, 'cpu', groups=['0', '1'], prefetch_depth=1)
+    model[0].fail = True
+    try:
+        with pytest.raises(ValueError, match='block failure'):
+            model(torch.ones(2, 3))
+        assert all(key.startswith('0.') for key, *_ in store.copies)
+        assert all_meta(model)
+    finally:
+        stream.close()
+
+
+@pytest.mark.parametrize('options,match', [
+    ({'fixed_arena_groups': ['missing']}, 'Unknown fixed'),
+    ({'fixed_arena_groups': ['0']}, 'Fixed arena requires'),
+    ({'fixed_arena_groups': ['0'], 'cpu_readahead': True, 'resident_cache_bytes': 1}, 'Fixed arena requires'),
+])
+def test_fixed_arena_configuration_rejected_before_tensor_mutation(options, match):
+    model = nn.Sequential(nn.Linear(1, 1))
+    with pytest.raises(ValueError, match=match):
+        BlockStreamedWeights(model, ReadIntoStore(model), 'cuda', groups=['0'], **options)
+    assert not any(t.is_meta for t in model.state_dict().values())
+
+
+@pytest.mark.skipif(os.environ.get('FASTH3_RUN_GPU_TESTS') != '1', reason='Lead-only GPU window')
+def test_cuda_fixed_arena_waits_for_delayed_weight_reads_and_reuses_across_forwards():
+    from fasth3_platform import BudgetGuard
+    class DelayedLinear(nn.Linear):
+        def forward(self, x):
+            # The next block's DMA can otherwise overwrite this weight before
+            # its GEMM even begins. record_stream alone cannot order that write.
+            torch.cuda._sleep(20_000_000)
+            return super().forward(x)
+    with BudgetGuard(device='cuda:0', max_gib=10., reserve_mib=256) as guard:
+        model = nn.Sequential(nn.Linear(16, 16), DelayedLinear(16, 16), DelayedLinear(16, 16)).bfloat16().eval()
+        reference = copy.deepcopy(model).to('cuda:0')
+        stream = BlockStreamedWeights(model, ReadIntoStore(model), 'cuda:0', guard,
+                                      groups=['0', '1', '2'], fixed_arena_groups=['1', '2'],
+                                      cpu_readahead=True, max_pinned_bytes=4096)
+        x = torch.randn(3, 16, device='cuda:0', dtype=torch.bfloat16)
+        pointer = None
+        try:
+            with torch.no_grad():
+                for _ in range(3):
+                    torch.testing.assert_close(model(x), reference(x), atol=0, rtol=0)
+                    current = stream.fixed_arena.data_ptr()
+                    pointer = current if pointer is None else pointer
+                    assert current == pointer and all_meta(model)
+            stats = stream.stats_snapshot()
+            assert stats['fixed_arena_allocations'] == 1 and stats['fixed_arena_reuses'] == 5
+            assert stats['resident_bytes'] == stats['fixed_arena_bytes'] == stream.fixed_arena_capacity
+        finally:
+            stream.close()
+        assert stream.stats_snapshot()['resident_bytes'] == stream.stats_snapshot()['fixed_arena_bytes'] == 0

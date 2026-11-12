@@ -116,6 +116,19 @@ cap and at least 256 MiB free board memory. Report budget failures and inspect
 the recorded phase. Use `--debug-checks` for suspected numerical or weight
 problems.
 
+The main DiT blocks reuse one fixed weight arena by default. Long requests use
+2048-token QKV chunks without an input quantization cache. When the planned
+workspace fits, fixed MXFP8 attention output buffers stay on the GPU; otherwise
+the request uses host staging. Inspect `streaming.dit_policy`, including
+`attention_output_runtime` when allocation caused a fallback.
+
+During DiT, the runtime may lower the allocator cap to target 11.5 GiB of total
+board usage, subtracting a single `nvidia-smi` sample of external occupancy and
+an additional 128 MiB margin. If that query is unavailable, CUDA memory accounting
+is used. The receipt is `streaming.dit_budget`; its `source` identifies the
+measurement and `restored` confirms restoration before VAE decoding. The original
+allocator limit and the 256 MiB board reserve still apply.
+
 Each generation produces an MP4 and a same-stem JSON report. Output paths must
 be unused. Check `status`, `transformer_forwards`, model source, dimensions,
 frame count, fps and audio duration. Keep prompt, reference order, seed and
@@ -133,7 +146,8 @@ peak allocation and free board memory. Label sampled peaks and memory units.
 
 Run `.\.venv-win\Scripts\python.exe -m pytest tests -q` for the CPU suite. For
 CUDA checks, set `$env:FASTH3_TEST_CUDA = '1'` and run the relevant tests while
-the GPU is idle. PE transport tests can run with mocked requests before using
+the GPU is idle. Offload event-order tests additionally use
+`$env:FASTH3_RUN_GPU_TESTS = '1'`. PE transport tests can run with mocked requests before using
 the live API. Select tests for the components changed.
 
 ## Release contents

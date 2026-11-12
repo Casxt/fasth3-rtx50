@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from threading import get_ident
 from time import perf_counter
+import sys
 import torch
 from torch import nn
 
@@ -179,11 +180,16 @@ class BlockStreamedWeights:
     execution remains correct when the prediction is wrong. At most ONE idle
     prefetched group is retained; active ancestors are separately budgeted.
     CPU mode simulates residency and prediction, never allocates pinned memory.
+    ``fixed_arena_groups`` opts selected CUDA read-ahead groups into one shared
+    backing allocation. It is allocated on first demand and reused across
+    successful forwards until close(). Explicit execution() scopes and failed
+    transactions release it. Close this request's scheduler before Qwen/VAE.
     """
     def __init__(self, model, store, device, guard=lambda phase: None, *, groups,
                  prefetch_depth=0, max_gpu_bytes=10*GIB, reserve_bytes=256*MIB,
                  max_resident_bytes=None, max_pinned_bytes=64*MIB, cpu_readahead=False,
-                 tensor_guard=None, guard_each_tensor=True, resident_cache_bytes=0):
+                 tensor_guard=None, guard_each_tensor=True, resident_cache_bytes=0,
+                 fixed_arena_groups=()):
         if prefetch_depth not in (0, 1):
             raise ValueError("prefetch_depth must be 0 or 1")
         if not 0 < max_gpu_bytes <= 10*GIB or reserve_bytes < 256*MIB:
@@ -204,6 +210,12 @@ class BlockStreamedWeights:
         self.groups = [WeightGroup(g, (g,)) if isinstance(g, str) else g for g in groups]
         if not self.groups or len({g.name for g in self.groups}) != len(self.groups):
             raise ValueError("Group names must be nonempty and unique")
+        fixed_names = frozenset(fixed_arena_groups)
+        if fixed_names - {g.name for g in self.groups}:
+            raise ValueError("Unknown fixed arena group name")
+        if fixed_names and (not cpu_readahead or prefetch_depth or resident_cache_bytes):
+            raise ValueError("Fixed arena requires CUDA CPU read-ahead without prefetch or resident cache")
+        self.fixed_arena_groups = frozenset(i for i, g in enumerate(self.groups) if g.name in fixed_names)
         roots = [(p, i) for i, g in enumerate(self.groups) for p in g.roots]
         self.root_group = next((i for p, i in roots if p == ""), None)
         if len({p for p, _ in roots}) != len(roots):
@@ -253,6 +265,10 @@ class BlockStreamedWeights:
                     end = offset + size
                 self.offsets.append(offsets)
                 self.sizes[index] = end
+        if any(not self.sizes[i] for i in self.fixed_arena_groups):
+            raise ValueError("Fixed arena groups must contain persistent tensors")
+        self.fixed_arena_capacity = max((self.sizes[i] for i in self.fixed_arena_groups), default=0)
+        self.fixed_arena = self.fixed_arena_owner = self.fixed_arena_done = None
         self.prefetch_depth = prefetch_depth
         self._prefetch_omitted = frozenset()
         self.max_gpu_bytes, self.reserve_bytes = max_gpu_bytes, reserve_bytes
@@ -289,6 +305,7 @@ class BlockStreamedWeights:
                           guard_seconds=0., guard_calls=0,
                           host_wait_seconds=0., h2d_gpu_ms=0., h2d_chunks=0,
                           compute_gpu_ms=0., cache_hits=0, cache_evictions=0, cache_peak_bytes=0)
+        self.stats.update(fixed_arena_allocations=0, fixed_arena_reuses=0)
         self.group_calls = {}
         try:
             for entries in self.entries:
@@ -324,7 +341,7 @@ class BlockStreamedWeights:
                             self.pending_events.append((start, end, "compute_gpu_ms"))
                         if index != self.current and not self.active[index] and index not in self.cached:
                             self._release(index)
-                        elif index == self.current:
+                        elif index == self.current and sys.exc_info()[0] is None:
                             # Compute has now been enqueued. Feeding the next
                             # group here overlaps it instead of delaying launch.
                             self._prefetch(index)
@@ -489,7 +506,7 @@ class BlockStreamedWeights:
         if self.in_forward:
             try:
                 if self.owns_run:
-                    self._end()
+                    self._end(keep_fixed_arena=sys.exc_info()[0] is None)
             finally:
                 self.in_forward = False
 
@@ -600,15 +617,30 @@ class BlockStreamedWeights:
                 self.stats["h2d_chunks"] += 1
 
     def _load_arena(self, index, size, optional_budget):
-        try:
-            arena = torch.empty(size, device=self.device, dtype=torch.uint8)
-        except torch.OutOfMemoryError:
-            if optional_budget:
-                return False
-            raise
+        fixed = index in self.fixed_arena_groups
+        arena = self.fixed_arena if fixed else None
+        if arena is None:
+            capacity = self.fixed_arena_capacity if fixed else size
+            try:
+                arena = torch.empty(capacity, device=self.device, dtype=torch.uint8)
+            except torch.OutOfMemoryError:
+                if optional_budget:
+                    return False
+                raise
+            self.stats['resident_bytes'] += capacity
+            self.stats['resident_peak_bytes'] = max(self.stats['resident_peak_bytes'], self.stats['resident_bytes'])
+            if fixed:
+                self.fixed_arena = arena
+                self.stats['fixed_arena_allocations'] += 1
+        elif fixed:
+            self.stats['fixed_arena_reuses'] += 1
+        if fixed:
+            self.fixed_arena_owner = index
+            # record_stream protects reclamation, but cannot protect explicit
+            # writes into retained backing. Wait for its last compute user.
+            if self.fixed_arena_done is not None:
+                self.copy_stream.wait_event(self.fixed_arena_done)
         self.loaded[index].append(arena)
-        self.stats['resident_bytes'] += size
-        self.stats['resident_peak_bytes'] = max(self.stats['resident_peak_bytes'], self.stats['resident_bytes'])
         try:
             self._guard(f"block arena:{self.groups[index].name}", self.tensor_guard)
         except MemoryError:
@@ -628,7 +660,11 @@ class BlockStreamedWeights:
         if index in self.loaded:
             return True
         size = self.sizes[index]
-        if self.stats["resident_bytes"]+size > self.max_resident_bytes:
+        fixed = index in self.fixed_arena_groups
+        if fixed and self.fixed_arena_owner is not None:
+            raise RuntimeError("Fixed arena still belongs to an active group")
+        additional = (self.fixed_arena_capacity if self.fixed_arena is None else 0) if fixed else size
+        if self.stats["resident_bytes"]+additional > self.max_resident_bytes:
             if optional_budget:
                 return False
             raise MemoryError("Active groups exceed resident byte bound")
@@ -638,7 +674,7 @@ class BlockStreamedWeights:
             if optional_budget:
                 return False
             raise
-        if self.device.type == "cuda" and not self._cuda_capacity(size):
+        if self.device.type == "cuda" and not self._cuda_capacity(additional):
             if optional_budget:
                 return False
             raise MemoryError("GPU headroom insufficient for requested group")
@@ -697,12 +733,21 @@ class BlockStreamedWeights:
             raise
 
     def _release(self, index):
+        if index == self.fixed_arena_owner and self.active[index]:
+            raise RuntimeError("Cannot release an active fixed arena group")
         values = self.loaded.pop(index, None)
         if values is None:
             return
         # CUDA allocator sees compute-stream ownership in _enter_group. The
         # copy stream owns allocation/copies; pending pin events retain sources.
-        self.stats["resident_bytes"] -= sum(v.numel()*v.element_size() for v in values)
+        if index == self.fixed_arena_owner:
+            # Group posthooks have returned: all reads of these weights have
+            # been submitted, including work queued by a forward that raised.
+            self.fixed_arena_done = torch.cuda.Event()
+            self.fixed_arena_done.record(torch.cuda.current_stream(self.device))
+            self.fixed_arena_owner = None
+        elif index not in self.fixed_arena_groups:
+            self.stats["resident_bytes"] -= sum(v.numel()*v.element_size() for v in values)
         self.cached_bytes -= self.cached.pop(index, 0)
         for entry in self.entries[index]:
             self._meta(entry)
@@ -803,27 +848,52 @@ class BlockStreamedWeights:
                 remaining.append((start, end, field))
         self.pending_events = remaining
 
-    def _end(self):
+    def _end(self, *, keep_fixed_arena=False):
+        drained = released = False
         try:
             if self.copy_stream is not None:
                 self.copy_stream.synchronize()  # Including prefetched-but-unused copies.
                 self._harvest(wait=True)
             if self.reader is not None:
                 self.reader.drain()
+            drained = True
         finally:
-            for index in list(self.loaded):
-                self._release(index)
-            for module, name, original in self.buffers:
-                module._buffers[name] = original
-            self.active = [0]*len(self.groups)
-            self.current = self.prefetched = self.primed_group = None
-            self.running, self.owner_thread = False, None
+            try:
+                # Alternate-entry scopes explicitly hold their root group;
+                # that liveness ends here together with all child forwards.
+                self.active = [0]*len(self.groups)
+                for index in list(self.loaded):
+                    self._release(index)
+                released = True
+            finally:
+                try:
+                    if not (keep_fixed_arena and drained and released):
+                        self._drop_fixed_arena()
+                finally:
+                    for module, name, original in self.buffers:
+                        module._buffers[name] = original
+                    self.active = [0]*len(self.groups)
+                    self.current = self.prefetched = self.primed_group = None
+                    self.running, self.owner_thread = False, None
+
+    def _drop_fixed_arena(self):
+        try:
+            # Release before the next Qwen/VAE request.
+            # Waiting only for this arena's last user avoids a device-wide sync.
+            if self.fixed_arena_done is not None:
+                self.fixed_arena_done.synchronize()
+        finally:
+            if self.fixed_arena is not None:
+                self.stats['resident_bytes'] -= self.fixed_arena_capacity
+            self.fixed_arena = self.fixed_arena_owner = self.fixed_arena_done = None
 
     def stats_snapshot(self):
         if self.device.type == "cuda":
             self._harvest()
         return {**self.stats, "prefetch_depth": self.prefetch_depth,
                 "resident_cache_limit_bytes": self.cache_limit, "cached_bytes": self.cached_bytes,
+                "fixed_arena_capacity_bytes": self.fixed_arena_capacity,
+                "fixed_arena_bytes": self.fixed_arena_capacity if self.fixed_arena is not None else 0,
                 "loaded_groups": [self.groups[i].name for i in self.loaded],
                 "primed_group": None if self.primed_group is None else self.groups[self.primed_group].name,
                 "group_bytes": {g.name: n for g, n in zip(self.groups, self.sizes)},

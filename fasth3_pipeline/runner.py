@@ -371,11 +371,14 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
     component = 'transformer_ref' if is_pdd else 'transformer'
     core_name = {'r2va': 'ref2va', 'f2va': 'fl2va', 'fl2va': 'fl2va', 't2va': 't2va'}[task]
     long_scratch = LongVideoScratch()
+    dit_budget = ExitStack()
     try:
         pipe.update_components(**{component: model})
         core = blocks.sub_blocks['denoise'].sub_blocks[core_name]
         state = _prepare_denoising(core, pipe, state, task)
         layout = layout_from_state(state, pipe.patch_size, device, task=task, tile_size=tile_size)
+        from fasth3_platform import dit_gpu_budget
+        dit_budget.enter_context(dit_gpu_budget(guard, diagnostics.streaming.setdefault('dit_budget', {})))
         policy = install_vsa(model, layout, guard.budget, sparsity=.9 if is_pdd else .8,
                              debug_checks=debug_checks, long_scratch=long_scratch)
         diagnostics.streaming['dit_policy'] = policy
@@ -384,7 +387,7 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
             model._long_static = {}
         fields = {name: state.get(name) for name in ("token_tags", "position_ids", "video_indices", "audio_indices", "text_indices")}
         video, audio = state.get("latents")[None], state.get("audio_latents")[None]
-        if policy.get('host_output_reuse'):
+        if policy.get('activation_scratch_reuse', policy.get('host_output_reuse')):
             shape = (video.shape[0], len(fields['position_ids']), model.context_embedder.out_features)
             policy['activation_arena_bytes'] = long_scratch.prepare_cuda(shape, device, guard.budget)
             guard('long DiT activation buffers prepared')
@@ -426,13 +429,22 @@ def run_h3(*, task, base_model, transformer_path, text_encoder_path, prompt, gua
         state = _run_block(core.sub_blocks["after_denoise"], pipe, state)
     finally:
         try:
-            long_scratch.close()
+            try:
+                long_scratch.close()
+            finally:
+                try:
+                    stream.close()
+                finally:
+                    diagnostics.streaming['dit'] = stream.stats_snapshot()
         finally:
-            stream.close()
-        diagnostics.streaming['dit'] = stream.stats_snapshot()
-        pipe.update_components(**{component: None})
-        del model, stream
-        _clear_device(device)
+            try:
+                pipe.update_components(**{component: None})
+            finally:
+                del model, stream
+                try:
+                    _clear_device(device)
+                finally:
+                    dit_budget.close()
         guard("DiT released")
     if diagnostics.checkpoint("denoise", {"video": state.get("latents"), "audio": state.get("audio_latents")}):
         return diagnostics.stopped("denoise")

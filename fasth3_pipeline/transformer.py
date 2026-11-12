@@ -64,8 +64,12 @@ def load_transformer(directory, device, guard=lambda phase: None, *, profile=OMN
         if adaln_table is not None:
             from .adaln import install_adaln_table
             install_adaln_table(model, store, adaln_table)
-        stream = BlockStreamedWeights(model, store, device, guard, groups=dit_groups(model),
-                                      cpu_readahead=True, max_pinned_bytes=512 << 20)
+        groups = dit_groups(model)
+        stream = BlockStreamedWeights(model, store, device, guard, groups=groups,
+                                      cpu_readahead=True, max_pinned_bytes=512 << 20,
+                                      fixed_arena_groups=tuple(group.name for group in groups
+                                                               if group.name.startswith('block-')))
+        model._dit_weight_arena_bytes = stream.fixed_arena_capacity
         handle = ManagedStream(stream, store, 'readahead')
     except BaseException:
         store.close()
@@ -123,32 +127,65 @@ def _pipelined_mxfp8_ffn(ff, hidden_states, *, persistent_full=True, pack=None):
     return result.reshape(*hidden_states.shape[:-1], down.out_features)
 
 
+def _long_attention_workspace(layout, heads_per_group=4):
+    """Conservative live head panels, routing temporaries and small CUDA workspaces."""
+    padded = layout.source.numel()
+    tokens = layout.inverse.numel()
+    tiles = len(layout.lengths)
+    panel = padded * heads_per_group * 128 * 2
+    # Fused token-major QKV remains live until all three padded layouts exist.
+    # Routing can hold Q/K/V/fine and up to three FP32 score matrices.
+    qkv_layout = 3 * (tokens + padded) * heads_per_group * 128 * 2
+    return max(qkv_layout, 4 * panel + 3 * heads_per_group * tiles * tiles * 4) + (320 << 20)
+
+
 def install_vsa(model, layout, budget, *, sparsity=.9, debug_checks=False, long_scratch=None):
     from types import MethodType
     from .long_video import install_long_blocks
     from .mxfp8_linear import MXFP8Linear
 
     available = budget.available_bytes()
-    # The accepted 15 s short-reference case used packed output at 118,693
-    # tokens. The 224,624-token long-reference case used host output instead.
-    packed = layout.inverse.numel() <= 120_000 and available >= (8 << 30)
-    cache_bytes = (384 << 20) if packed else 0
-    tma_store = packed and not debug_checks
+    tokens = layout.inverse.numel()
+    long = tokens > 120_000
+    packed = not long and available >= (8 << 30)
+    workspace = _long_attention_workspace(layout) if long else 0
+    arena = getattr(model, '_dit_weight_arena_bytes', 0)
+    activation_bytes = 0
+    if long and long_scratch is not None:
+        shape = (1, tokens, model.context_embedder.out_features)
+        activation_bytes = long_scratch.prepare_cuda(
+            shape, layout.inverse.device, budget, output_width=model.transformer_blocks[0].attn.heads * 128,
+            workspace_bytes=workspace + arena)
+        packed = bool(activation_bytes)
+    cache_bytes = (384 << 20) if packed and not long else 0
+    tma_store = packed and not long and not debug_checks
     for layer in model.modules():
         if isinstance(layer, MXFP8Linear):
             layer.tma_store = tma_store
     for block in model.transformer_blocks:
+        if long:
+            for projection in (block.attn.to_q, block.attn.to_k, block.attn.to_v):
+                projection.chunk_tokens = 2048
         block.attn.set_processor(H3VSAProcessor(layout, sparsity=sparsity, packed_output=packed,
-                                                cache_bytes=cache_bytes, host_scratch=long_scratch,
-                                                reuse_input=not packed))
+                                                cache_bytes=cache_bytes,
+                                                host_scratch=long_scratch if long or not packed else None,
+                                                reuse_input=long or not packed))
         up, down = block.ff.net[0].proj, block.ff.net[2]
         native = (not (up.debug_checks or down.debug_checks)
                   and (up.in_features, up.out_features, down.in_features, down.out_features)
                   == (5376, 28672, 14336, 5376))
         block.ff.forward = MethodType(_pipelined_mxfp8_ffn if native else _streamed_fused_ffn, block.ff)
         block._pack_ffn_adaln = native
-    install_long_blocks(model, None if packed else long_scratch)
-    return {'attention_output': 'mxfp8' if packed else 'host', 'qkv_cache_bytes': cache_bytes,
-            'available_bytes': available, 'tokens': layout.inverse.numel(),
+    install_long_blocks(model, long_scratch if long or not packed else None)
+    policy = {'attention_output': 'mxfp8' if packed else 'host', 'qkv_cache_bytes': cache_bytes,
+            'available_bytes': available, 'tokens': tokens,
+            'qkv_chunk_tokens': 2048 if long else 512,
+            'activation_scratch_reuse': (long or not packed) and long_scratch is not None,
+            'activation_arena_bytes': activation_bytes,
+            'attention_workspace_bytes': workspace, 'weight_arena_bytes': arena,
+            'attention_output_bytes': tokens * (model.transformer_blocks[0].attn.heads * 132) if packed else 0,
             'tma_store': tma_store, 'host_output_reuse': not packed and long_scratch is not None,
-            'host_output_inplace': not packed}
+            'host_output_inplace': not packed, 'attention_output_inplace': long or not packed}
+    if long_scratch is not None:
+        long_scratch.policy = policy
+    return policy
