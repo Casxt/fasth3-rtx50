@@ -186,6 +186,9 @@ def _run_generation(args):
 
 
 def main(argv=None):
+    from fasth3_platform import configure_cpu_threads
+
+    configure_cpu_threads()
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "prepare":
         return _prepare(argv[1:])

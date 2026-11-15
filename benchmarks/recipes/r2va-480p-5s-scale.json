@@ -1,0 +1,135 @@
+{
+  "task": "r2va",
+  "seed": 4277,
+  "model": {
+    "task": "r2va",
+    "source": "fasth3-omni-ref2va",
+    "profile": "omni-pdd8",
+    "sampler": "pdd",
+    "vsa_tile_size": 128
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "local 480p benchmark",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 480,
+    "canvas_max_pixels": 399360,
+    "height": 480,
+    "width": 832
+  },
+  "requested_frames": 120,
+  "aligned_frames": 124,
+  "generated_export_frames": 120,
+  "published_frames": 120,
+  "published_conform_method": "No video speed change; normalized PTS origin",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 4194,
+    "condition_video_rows": 12864,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      27294,
+      96
+    ],
+    "video_rows": 27294,
+    "audio_shape": [
+      1,
+      414,
+      32
+    ],
+    "audio_rows": 414,
+    "token_tags_shape": [
+      31902
+    ],
+    "token_tags_rows": 31902,
+    "video_indices_shape": [
+      27294
+    ],
+    "video_indices_rows": 27294,
+    "audio_indices_shape": [
+      414
+    ],
+    "audio_indices_rows": 414,
+    "text_indices_shape": [
+      4194
+    ],
+    "text_indices_rows": 4194
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": false,
+  "pe_during_generation": false,
+  "id": "r2va-480p-5s-scale",
+  "debug_checks": false,
+  "reference_image_short_edge": 512,
+  "comparison_class": "scale_only_non_strict",
+  "normalized_argv": [
+    "python",
+    "bench_cli.py",
+    "case-r2va-480p-5s-scale.json"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Local scratch benchmark overrides; not a direct public CLI request.",
+  "inputs_ordered": [
+    {
+      "role": "reference",
+      "kind": "video",
+      "sha256": "6917d648e51d4f3e90e2f9d49888a6719be2a315ef15e464dfe67e9c222d2329",
+      "bytes": 4419633,
+      "width": 1344,
+      "height": 768,
+      "frames": 120,
+      "fps": 24.0,
+      "duration_seconds": 5.0,
+      "file_has_audio": false,
+      "source_name": "r2va-5s-reference.mp4"
+    },
+    {
+      "role": "reference",
+      "kind": "image",
+      "sha256": "419873530c2e2d0521057cd8245072db9903287e64c7613b68c9e53e61624994",
+      "bytes": 2280391,
+      "width": 1024,
+      "height": 1536,
+      "source_name": "kimi-identity.png"
+    }
+  ],
+  "prompt": {
+    "file": "prompts/r2va-480p-5s-scale.txt",
+    "original_runtime_raw_bytes_sha256": "c996ccbeaec684cce27fc71d1d8cdcaeffd66d4a74384c6101f6023a1f9698b2",
+    "published_LF_utf8_sha256": "4f8a084759f3728b2e27cb9728b556043da3f55eaca784277f306c8ff4538eac",
+    "canonical_text_sha256": "4f8a084759f3728b2e27cb9728b556043da3f55eaca784277f306c8ff4538eac",
+    "runtime_file_bytes": 7710,
+    "published_bytes": 7676,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": null,
+  "pe_receipt_file": null,
+  "pe_prompt_tokens": null,
+  "publication": {
+    "file": "r2va-480p-5s.mp4",
+    "video_filter": "setpts=PTS-STARTPTS",
+    "audio_filter": null,
+    "video_time_scale_factor": 1.0,
+    "encoding": "libx265",
+    "preset": "medium",
+    "crf": 20
+  }
+}

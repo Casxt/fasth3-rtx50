@@ -1,0 +1,22 @@
+{
+  "status": "complete",
+  "task": "fl2va",
+  "num_frames": 362,
+  "aligned_num_frames": 362,
+  "prompt_enhancement": {
+    "compiler": "OpenH3-IR 0.4.1",
+    "model": "deepseek-flash",
+    "vision": true,
+    "thinking": true,
+    "status": "complete",
+    "source": "written",
+    "mode": "fl2va",
+    "visual_samples": 2,
+    "prompt_tokens": 679,
+    "findings": [
+      "S6-style-discrepancy"
+    ],
+    "prompt_sha256": "fb3e8684ad3480e4376c5fe208b68d0bebd0222db3996d9441d987bea5743c0b",
+    "elapsed_seconds": 32.46478099998785
+  }
+}

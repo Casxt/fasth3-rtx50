@@ -40,9 +40,50 @@ fasth3 doctor --gpu
 ```
 
 The Windows x64 lock uses Python 3.12.13 and the CUDA 12.8 PyTorch wheels.
-Linux and WSL use the same CLI. Use a platform-appropriate CUDA PyTorch and
-CuTe DSL installation when adapting the environment. See [AGENTS.md](AGENTS.md)
-for reproducible setup and test commands.
+Both platform launchers use `scripts/bootstrap.py`. With an available Python,
+you can run `python scripts/bootstrap.py` directly; Windows also requires uv
+on `PATH`. Add `--dry-run` to the Python command to inspect its plan.
+
+## Install on Linux / WSL
+
+The Linux x86_64 environment was checked on Ubuntu 22.04 with Python 3.12.3,
+PyTorch 2.10.0+cu128, torchvision 0.25.0+cu128 and CuTe DSL 4.8.1. Use Python
+3.12 and an NVIDIA driver compatible with CUDA 12.8. Choose a work directory
+with space for the environment, caches and models; keep WSL files on its Linux
+filesystem. From the repository root, replace the example path and run:
+
+```bash
+export FASTH3_WORK_DIR=/path/to/data-disk/fasth3
+export XDG_CACHE_HOME="$FASTH3_WORK_DIR/cache" TMPDIR="$FASTH3_WORK_DIR/tmp"
+export CUDA_CACHE_PATH="$FASTH3_WORK_DIR/cache/cuda" TRITON_CACHE_DIR="$FASTH3_WORK_DIR/cache/triton"
+export CUTE_DSL_CACHE_DIR="$FASTH3_WORK_DIR/cache/cutlass" CUTE_DSL_DUMP_DIR="$FASTH3_WORK_DIR/tmp/cute-dump"
+python3.12 scripts/bootstrap.py
+source "$FASTH3_WORK_DIR/.venv-linux/bin/activate"
+fasth3 --help
+fasth3 doctor --gpu
+```
+
+Run the GPU check while the GPU is idle. The bootstrap creates a separate venv,
+installs the CUDA stack from `requirements-linux-cu128.txt` first, then the
+versions in `requirements-linux.txt` and this project. It includes `pe,test`
+dependencies and checks package compatibility. Set `FASTH3_PYTHON` to select
+another Python 3.12 executable or `FASTH3_PYPI_INDEX` to select a PyPI mirror.
+`bash scripts/bootstrap-linux.sh` is a thin launcher for the same Python entry.
+Keep the cache exports in subsequent run shells; the script's own exports do
+not change its parent shell. In the preparation and generation examples below,
+use `--models-dir "$FASTH3_WORK_DIR/models"` to keep weights on that disk;
+the work-directory setting does not change the CLI's model path.
+
+Linux uses cuda-python/cuda-bindings 12.9.4 to match the Linux PyTorch wheel's
+exact binding requirement; Windows keeps cuda-python 12.9.10. The Linux files
+are version snapshots, with a hash for the pinned Diffusers archive, rather
+than a complete wheel-hash lock. The shared bootstrap installed a new
+`.venv-linux` with the existing dependency cache in 16.789 s. Including package
+compatibility checks, CPU/GPU doctor and three actual CuTe kernel checks, the
+verification took 36.297 s. The full CPU suite recorded 403 passed / 51 skipped
+in 4.69 s; the full GPU suite recorded 454 passed / zero skipped in 39.64 s,
+including real NVFP4 checkpoint probes under the 10 GiB allocator cap.
+See [AGENTS.md](AGENTS.md) for resource reporting and checks.
 
 ## Prepare weights
 
@@ -185,6 +226,19 @@ corresponding 768p samples. Timings include generation and export.
 | --- | --- | ---: | ---: | ---: | ---: |
 | T2VA | Text only | 149.2 | 8.50 / 22.01 | 24.32 / 42.83 | 3.52 / 4.03 |
 | R2VA | 1 reference image + 1 × 5 s video | 186.8 | 17.08 / 27.90 | 32.95 / 48.71 | 3.56 / 4.09 |
+
+### Linux validation
+
+On Linux with an RTX 5090, all 17 core generation cases completed with eight
+transformer forwards each, plus a 30-second chain and an orange-ball case.
+The matched 5 / 10 / 15 s R2VA cases used an equal-duration video and one image
+at a 512-pixel short edge, producing 1344×768 at 24 fps. They took
+286.746 / 739.713 / 1260.393 s versus the recorded Windows RTX 5080 results of
+496.331 / 1344.252 / 2258.036 s: a 1.73–1.82× speedup. This is a whole-system
+comparison; the CPU, OS and I/O differ.
+
+See the [complete cases and input conditions](benchmarks/linux-validation.md)
+and [hardware and transfer measurements](benchmarks/transfer-baseline.md).
 
 ## License
 

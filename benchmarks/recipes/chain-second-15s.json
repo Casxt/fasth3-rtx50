@@ -1,0 +1,134 @@
+{
+  "task": "fl2va",
+  "seed": 4277,
+  "model": {
+    "task": "fl2va",
+    "source": "fasth3-omni-ref2va",
+    "profile": "omni-pdd8",
+    "sampler": "pdd",
+    "vsa_tile_size": 128
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "pinned Diffusers MiniMaxH3Ref2VASetupStep.expected_configs",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 768,
+    "canvas_max_pixels": 1032192,
+    "height": 768,
+    "width": 1344
+  },
+  "requested_frames": 362,
+  "aligned_frames": 362,
+  "generated_export_frames": 362,
+  "published_frames": 360,
+  "published_conform_method": "endpoint preserving setpts=(published-1)/(native-1),fps24; audio adjusted only for conformed FL; packaging separate",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 2707,
+    "condition_video_rows": 2016,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      109872,
+      96
+    ],
+    "video_rows": 109872,
+    "audio_shape": [
+      1,
+      1206,
+      32
+    ],
+    "audio_rows": 1206,
+    "token_tags_shape": [
+      113785
+    ],
+    "token_tags_rows": 113785,
+    "video_indices_shape": [
+      109872
+    ],
+    "video_indices_rows": 109872,
+    "audio_indices_shape": [
+      1206
+    ],
+    "audio_indices_rows": 1206,
+    "text_indices_shape": [
+      2707
+    ],
+    "text_indices_rows": 2707
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": false,
+  "pe_during_generation": false,
+  "id": "chain-second-15s",
+  "debug_checks": false,
+  "reference_image_short_edge": null,
+  "comparison_class": "dependent_chain_continuation",
+  "normalized_argv": [
+    "python",
+    "bench_cli.py",
+    "case-chain-second-15s.json"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Local scratch benchmark overrides; not a direct public CLI request.",
+  "inputs_ordered": [
+    {
+      "role": "first-frame",
+      "kind": "image",
+      "sha256": "4fb3d6361d7bc5808e8d5c7ae189b363b145dedc00a0dd4047028d2a8a6df114",
+      "bytes": 1533514,
+      "width": 1344,
+      "height": 768,
+      "source_name": "chain-anchor-last-frame-359.png"
+    },
+    {
+      "role": "last-frame",
+      "kind": "image",
+      "sha256": "e7a9db911e19b5e4294258dd88967076a6ab082b44d7802fcb005157f67e22f0",
+      "bytes": 2844876,
+      "width": 1672,
+      "height": 941,
+      "source_name": "observatory-endpoint.png"
+    }
+  ],
+  "prompt": {
+    "file": "prompts/chain-second-15s.txt",
+    "original_runtime_raw_bytes_sha256": "fb3e8684ad3480e4376c5fe208b68d0bebd0222db3996d9441d987bea5743c0b",
+    "published_LF_utf8_sha256": "fb3e8684ad3480e4376c5fe208b68d0bebd0222db3996d9441d987bea5743c0b",
+    "canonical_text_sha256": "fb3e8684ad3480e4376c5fe208b68d0bebd0222db3996d9441d987bea5743c0b",
+    "runtime_file_bytes": 3034,
+    "published_bytes": 3034,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": {
+    "selected_wall_seconds": 32.86042520002229,
+    "total_attempt_wall_seconds": 71.51352220005356,
+    "excluded_from_generation_timing": true,
+    "attempts": 3
+  },
+  "pe_receipt_file": "pe/chain-second-15s.json",
+  "pe_prompt_tokens": 679,
+  "publication": {
+    "distributed_standalone": false,
+    "included_in": "chain-30s.mp4",
+    "published_segment_frames": 360,
+    "video_filter": "setpts=(359/361)*(PTS-STARTPTS),fps=24,trim=end_frame=360",
+    "audio_filter": "asetpts=PTS-STARTPTS,atempo=1.00557103064067,apad,atrim=duration=15"
+  }
+}

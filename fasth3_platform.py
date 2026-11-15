@@ -57,17 +57,118 @@ def windows_commit_info() -> dict:
             "commit_source": "Windows psapi.GetPerformanceInfo (system-wide)"}
 
 
+def _cgroup_directories(root, membership, controller):
+    from pathlib import Path
+
+    root = Path(root)
+    try:
+        entries = [line.split(':', 2) for line in Path(membership).read_text().splitlines()]
+    except OSError:
+        entries = []
+    if any((root / name).is_file() for name in ('cgroup.controllers', 'memory.max', 'cpu.max')):
+        version, base = 2, root
+        relative = next((entry[2] for entry in entries if len(entry) == 3 and entry[:2] == ['0', '']), '/')
+    else:
+        version = 1
+        base = next((root/name for name in (controller, 'cpu,cpuacct')
+                     if (root/name).is_dir()), root)
+        relative = next((entry[2] for entry in entries if len(entry) == 3 and controller in entry[1].split(',')), '/')
+    current = (base / relative.lstrip('/')).resolve()
+    base = base.resolve()
+    if not current.is_relative_to(base) or not current.is_dir():
+        current = base
+    directories = []
+    for directory in (current, *current.parents):
+        if not directory.is_relative_to(base):
+            break
+        directories.append(directory)
+    return version, directories
+
+
+def linux_cgroup_memory(root='/sys/fs/cgroup', membership='/proc/self/cgroup') -> dict:
+    """Read effective cgroup headroom, including reclaimable inactive file cache.
+
+    Container psutil totals can describe the host. Check every visible ancestor:
+    a busy parent can constrain a child even when its own limit has room.
+    """
+    version, directories = _cgroup_directories(root, membership, 'memory')
+    limit_name, current_name, inactive_key = (('memory.max', 'memory.current', 'inactive_file') if version == 2 else
+                                            ('memory.limit_in_bytes', 'memory.usage_in_bytes', 'total_inactive_file'))
+    candidates = []
+    for directory in directories:
+        try:
+            limit = int((directory / limit_name).read_text().strip())
+            used = int((directory / current_name).read_text().strip())
+            # v1 represents unlimited memory with a near-2**63 sentinel.
+            if not 0 < limit < 1 << 60 or used < 0:
+                continue
+            try:
+                stats = dict(line.split() for line in (directory / 'memory.stat').read_text().splitlines())
+                reclaimable = min(used, max(0, int(stats.get(inactive_key, stats.get('inactive_file', 0)))))
+            except (OSError, ValueError):
+                reclaimable = 0
+            candidates.append(dict(cgroup_version=version, cgroup_path=str(directory),
+                cgroup_limit_bytes=limit, cgroup_current_bytes=used,
+                cgroup_inactive_file_bytes=reclaimable, cgroup_working_set_bytes=used-reclaimable,
+                cgroup_available_bytes=max(0, limit-used+reclaimable)))
+        except (OSError, ValueError):
+            continue
+    if not candidates:
+        return {}
+    result = min(candidates, key=lambda row: row['cgroup_available_bytes'])
+    result['cgroup_effective_limit_bytes'] = min(row['cgroup_limit_bytes'] for row in candidates)
+    return result
+
+
+def effective_cpu_count(root='/sys/fs/cgroup', membership='/proc/self/cgroup') -> int:
+    """Respect Linux CPU quotas as well as process affinity."""
+    counts = [os.cpu_count() or 1]
+    if hasattr(os, 'sched_getaffinity'):
+        try:
+            counts.append(len(os.sched_getaffinity(0)))
+        except OSError:
+            pass
+    version, directories = _cgroup_directories(root, membership, 'cpu')
+    for directory in directories:
+        try:
+            if version == 2:
+                quota, period = (int(value) for value in (directory/'cpu.max').read_text().split())
+            else:
+                quota = int((directory/'cpu.cfs_quota_us').read_text())
+                period = int((directory/'cpu.cfs_period_us').read_text())
+            if quota > 0 and period > 0:
+                counts.append(max(1, quota // period))
+        except (OSError, ValueError):
+            continue
+    return max(1, min(counts))
+
+
+def configure_cpu_threads():
+    """Set conservative Linux CLI defaults before importing PyTorch."""
+    if platform.system() == 'Linux':
+        threads = str(min(8, effective_cpu_count()))
+        os.environ.setdefault('OMP_NUM_THREADS', threads)
+        os.environ.setdefault('MKL_NUM_THREADS', threads)
+
+
 def check_host_memory(min_available_gib: float = 2.0) -> dict:
     """Refuse probes when host memory is under pressure; never allocate models."""
     import psutil
-    available = psutil.virtual_memory().available
+    virtual = psutil.virtual_memory()
+    available = virtual.available
     if min_available_gib < 0 or not __import__('math').isfinite(min_available_gib):
         raise ValueError("min_available_gib must be finite and nonnegative")
+    container = linux_cgroup_memory() if platform.system() == 'Linux' else {}
+    if container:
+        available = min(available, container['cgroup_available_bytes'])
     if available < min_available_gib * GIB:
-        raise MemoryError(f"Host available memory {available / GIB:.2f} GiB below {min_available_gib} GiB")
+        raise MemoryError(f"Available host/container memory {available / GIB:.2f} GiB below {min_available_gib} GiB")
     memory = psutil.Process().memory_info()
     result = {"available_bytes": available, "process_rss_bytes": memory.rss,
               "process_private_bytes": getattr(memory, "private", None)}
+    if platform.system() == 'Linux':
+        result.update(container, host_available_bytes=virtual.available, host_total_bytes=virtual.total,
+                      available_scope='cgroup' if container else 'host')
     if platform.system() == "Windows":
         result.update(windows_commit_info())
         if result["commit_headroom_bytes"] < 2 * GIB:
@@ -87,7 +188,7 @@ def configure_gpu_budget(device: int = 0, max_gib: float = 10.0,
         raise ValueError("reserve_mib must be >=256")
     check_host_memory()
     if not torch.cuda.is_available():
-        raise RuntimeError("CUDA unavailable; install the pinned Windows CUDA torch wheel")
+        raise RuntimeError("CUDA unavailable; install a CUDA-enabled PyTorch wheel")
     free, total = torch.cuda.mem_get_info(device)
     reserve = reserve_mib * MIB
     budget = min(int(max_gib * GIB), free - reserve)

@@ -1,0 +1,2 @@
+# Keep published prompt bytes and their SHA256 stable across checkouts.
+benchmarks/recipes/**/*.txt text eol=lf

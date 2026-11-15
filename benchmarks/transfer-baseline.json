@@ -1,0 +1,1110 @@
+{
+  "schema_version": 1,
+  "description": "Preallocated CPU/CUDA transfer baseline, 2026-11-16 Asia/Shanghai. No weights or generated video.",
+  "units": {
+    "bytes": "bytes",
+    "MiB": "2**20 bytes",
+    "GiB_per_s": "2**30 bytes/s",
+    "GB_per_s": "10**9 bytes/s",
+    "nvidia_memory": "MiB",
+    "nvidia_clocks": "MHz",
+    "nvidia_power": "W",
+    "nvidia_temperature": "C",
+    "nvidia_utilization": "percent"
+  },
+  "runs": {
+    "windows_rtx5080": {
+      "schema_version": 1,
+      "timestamp_utc": "2026-11-15T16:53:04.233969+00:00",
+      "run_condition": "GPU idle before test; desktop applications remain open; no generation, game or concurrent GPU benchmark.",
+      "hardware": {
+        "os": "Windows-11-10.0.26300-SP0",
+        "python": "3.12.13",
+        "torch": "2.10.0+cu128",
+        "cuda_runtime": "12.8",
+        "cpu_model": "AMD Ryzen 9 9950X 16-Core Processor",
+        "cpu_host_visible_logical": 32,
+        "cpu_affinity_count": 32,
+        "cpu_effective_count": 32,
+        "torch_threads": 8,
+        "memory": {
+          "available_bytes": 78660280320,
+          "process_rss_bytes": 639619072,
+          "process_private_bytes": 2046169088,
+          "commit_bytes": 30073987072,
+          "commit_limit_bytes": 106707644416,
+          "commit_headroom_bytes": 76633657344,
+          "commit_source": "Windows psapi.GetPerformanceInfo (system-wide)",
+          "host_total_bytes": 100265193472
+        },
+        "gpu": {
+          "name": "NVIDIA GeForce RTX 5080",
+          "driver_version": "621.14",
+          "pci.bus_id": "00000000:01:00.0",
+          "memory.total": "16303",
+          "memory.used": "2753",
+          "utilization.gpu": "0",
+          "utilization.memory": "0",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "35.57",
+          "clocks.sm": "2655",
+          "clocks.mem": "15801",
+          "temperature.gpu": "37.06",
+          "sampled_at_utc": "2026-11-15T16:52:58.869004+00:00"
+        },
+        "gpu_total_bytes": 17066360832,
+        "gpu_numa": {},
+        "cpu_cgroup_quotas": []
+      },
+      "measurement": {
+        "warmup_per_case": 3,
+        "repeats_per_case": 20,
+        "setup_seconds_excluded": 0.3788889999850653,
+        "preallocated_gpu_bytes": 268435456,
+        "preallocated_host_bytes": 536870912,
+        "gpu_budget": {
+          "device": 0,
+          "budget_bytes": 10737418240,
+          "reserve_bytes": 268435456,
+          "free_bytes": 15712911360,
+          "total_bytes": 17066360832
+        },
+        "non_blocking_requested": true,
+        "cuda_event_scope": "Stream interval, including possible staging/submission gaps.",
+        "cpu_wall_scope": "Event submission, copy call, and wait for completion.",
+        "telemetry_scope": "Before/after and separate transfer load; none inside timed samples."
+      },
+      "pcie_under_copy_load": [
+        {
+          "name": "NVIDIA GeForce RTX 5080",
+          "driver_version": "621.14",
+          "pci.bus_id": "00000000:01:00.0",
+          "memory.total": "16303",
+          "memory.used": "3413",
+          "utilization.gpu": "100",
+          "utilization.memory": "11",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "55.91",
+          "clocks.sm": "3165",
+          "clocks.mem": "15801",
+          "temperature.gpu": "38.35",
+          "sampled_at_utc": "2026-11-15T16:53:03.821868+00:00"
+        },
+        {
+          "name": "NVIDIA GeForce RTX 5080",
+          "driver_version": "621.14",
+          "pci.bus_id": "00000000:01:00.0",
+          "memory.total": "16303",
+          "memory.used": "3413",
+          "utilization.gpu": "100",
+          "utilization.memory": "11",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "55.91",
+          "clocks.sm": "3165",
+          "clocks.mem": "15801",
+          "temperature.gpu": "38.35",
+          "sampled_at_utc": "2026-11-15T16:53:04.023114+00:00"
+        },
+        {
+          "name": "NVIDIA GeForce RTX 5080",
+          "driver_version": "621.14",
+          "pci.bus_id": "00000000:01:00.0",
+          "memory.total": "16303",
+          "memory.used": "3413",
+          "utilization.gpu": "99",
+          "utilization.memory": "11",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "55.91",
+          "clocks.sm": "3165",
+          "clocks.mem": "15801",
+          "temperature.gpu": "38.32",
+          "sampled_at_utc": "2026-11-15T16:53:04.224936+00:00"
+        }
+      ],
+      "gpu_after": {
+        "name": "NVIDIA GeForce RTX 5080",
+        "driver_version": "621.14",
+        "pci.bus_id": "00000000:01:00.0",
+        "memory.total": "16303",
+        "memory.used": "3413",
+        "utilization.gpu": "85",
+        "utilization.memory": "9",
+        "pcie.link.gen.current": "5",
+        "pcie.link.gen.max": "5",
+        "pcie.link.width.current": "16",
+        "pcie.link.width.max": "16",
+        "power.draw": "58.06",
+        "clocks.sm": "3165",
+        "clocks.mem": "15801",
+        "temperature.gpu": "38.30",
+        "sampled_at_utc": "2026-11-15T16:53:04.282748+00:00"
+      },
+      "memory_after": {
+        "free_bytes": 15020851200,
+        "allocated_bytes": 268435456,
+        "reserved_bytes": 622854144,
+        "peak_allocated_bytes": 536873984
+      },
+      "results": [
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.0650079995393753,
+            "min_ms": 0.058687999844551086,
+            "max_ms": 0.07596799731254578,
+            "mean_ms": 0.06531999949365855,
+            "GiB_per_s": 15.022189683109639,
+            "GB_per_s": 16.129953350816127
+          },
+          "cpu_wall": {
+            "median_ms": 0.08875,
+            "min_ms": 0.0819,
+            "max_ms": 0.0948,
+            "mean_ms": 0.08868,
+            "GiB_per_s": 11.003521126760564,
+            "GB_per_s": 11.814940845070424
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.07979200035333633,
+            "min_ms": 0.07791999727487564,
+            "max_ms": 0.08419200032949448,
+            "mean_ms": 0.08050239980220794,
+            "GiB_per_s": 12.238852211695017,
+            "GB_per_s": 13.141367497451842
+          },
+          "cpu_wall": {
+            "median_ms": 0.1063,
+            "min_ms": 0.0916,
+            "max_ms": 0.1105,
+            "mean_ms": 0.10377,
+            "GiB_per_s": 9.186853245531514,
+            "GB_per_s": 9.864308560677328
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.032175999134778976,
+            "min_ms": 0.031936001032590866,
+            "max_ms": 0.037856001406908035,
+            "mean_ms": 0.03254879973828793,
+            "GiB_per_s": 30.35065036859836,
+            "GB_per_s": 32.58876268636507
+          },
+          "cpu_wall": {
+            "median_ms": 0.0665,
+            "min_ms": 0.0471,
+            "max_ms": 0.0677,
+            "mean_ms": 0.065655,
+            "GiB_per_s": 14.685150375939848,
+            "GB_per_s": 15.76806015037594
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.02099199965596199,
+            "min_ms": 0.020896000787615776,
+            "max_ms": 0.02534399926662445,
+            "mean_ms": 0.02119679991155863,
+            "GiB_per_s": 46.520699123708496,
+            "GB_per_s": 49.95122033084596
+          },
+          "cpu_wall": {
+            "median_ms": 0.055150000000000005,
+            "min_ms": 0.0346,
+            "max_ms": 0.0611,
+            "mean_ms": 0.054865,
+            "GiB_per_s": 17.70738893925657,
+            "GB_per_s": 19.01316409791478
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.7141439914703369,
+            "min_ms": 0.6837120056152344,
+            "max_ms": 0.8321599960327148,
+            "mean_ms": 0.7169391959905624,
+            "GiB_per_s": 21.879341122551487,
+            "GB_per_s": 23.49276364484664
+          },
+          "cpu_wall": {
+            "median_ms": 0.73935,
+            "min_ms": 0.7073,
+            "max_ms": 0.8645,
+            "mean_ms": 0.74112,
+            "GiB_per_s": 21.133428011090825,
+            "GB_per_s": 22.691845540001356
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.8488640189170837,
+            "min_ms": 0.8283839821815491,
+            "max_ms": 1.0116480588912964,
+            "mean_ms": 0.8662160068750382,
+            "GiB_per_s": 18.406952882669227,
+            "GB_per_s": 19.764315162519313
+          },
+          "cpu_wall": {
+            "median_ms": 0.8767499999999999,
+            "min_ms": 0.8558,
+            "max_ms": 1.039,
+            "mean_ms": 0.893545,
+            "GiB_per_s": 17.821499857428,
+            "GB_per_s": 19.135689763330486
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.39100800454616547,
+            "min_ms": 0.38950398564338684,
+            "max_ms": 0.4456639885902405,
+            "mean_ms": 0.39423359632492067,
+            "GiB_per_s": 39.96081875135933,
+            "GB_per_s": 42.90760241461796
+          },
+          "cpu_wall": {
+            "median_ms": 0.43174999999999997,
+            "min_ms": 0.4116,
+            "max_ms": 0.4898,
+            "mean_ms": 0.43348,
+            "GiB_per_s": 36.189924724956576,
+            "GB_per_s": 38.858635784597574
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.2953279912471771,
+            "min_ms": 0.29523199796676636,
+            "max_ms": 0.2956480085849762,
+            "mean_ms": 0.295353601872921,
+            "GiB_per_s": 52.907277545942236,
+            "GB_per_s": 56.808756695054264
+          },
+          "cpu_wall": {
+            "median_ms": 0.3351,
+            "min_ms": 0.3276,
+            "max_ms": 0.3454,
+            "mean_ms": 0.33547,
+            "GiB_per_s": 46.62787227693226,
+            "GB_per_s": 50.066296627872276
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 3.3248480558395386,
+            "min_ms": 2.9810879230499268,
+            "max_ms": 4.936448097229004,
+            "mean_ms": 3.5855727791786194,
+            "GiB_per_s": 18.797851495868876,
+            "GB_per_s": 20.18403935245538
+          },
+          "cpu_wall": {
+            "median_ms": 3.3509,
+            "min_ms": 3.0042,
+            "max_ms": 4.9664,
+            "mean_ms": 3.608065,
+            "GiB_per_s": 18.65170551195201,
+            "GB_per_s": 20.02711629711421
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 3.4251999855041504,
+            "min_ms": 3.3266561031341553,
+            "max_ms": 3.7298879623413086,
+            "mean_ms": 3.444607973098755,
+            "GiB_per_s": 18.247109735054117,
+            "GB_per_s": 19.592684889645163
+          },
+          "cpu_wall": {
+            "median_ms": 3.4572000000000003,
+            "min_ms": 3.3631,
+            "max_ms": 3.7657,
+            "mean_ms": 3.4784,
+            "GiB_per_s": 18.07821358324656,
+            "GB_per_s": 19.411334027536736
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 1.2390080094337463,
+            "min_ms": 1.2189760208129883,
+            "max_ms": 1.3421759605407715,
+            "mean_ms": 1.2493967890739441,
+            "GiB_per_s": 50.44358028691345,
+            "GB_per_s": 54.1633819063609
+          },
+          "cpu_wall": {
+            "median_ms": 1.2718,
+            "min_ms": 1.2518,
+            "max_ms": 1.3682,
+            "mean_ms": 1.2853350000000001,
+            "GiB_per_s": 49.14294700424595,
+            "GB_per_s": 52.76683755307439
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 1.1720799803733826,
+            "min_ms": 1.1715199947357178,
+            "max_ms": 1.1940480470657349,
+            "mean_ms": 1.1744976043701172,
+            "GiB_per_s": 53.32400608027597,
+            "GB_per_s": 57.25621555162262
+          },
+          "cpu_wall": {
+            "median_ms": 1.2114,
+            "min_ms": 1.1936,
+            "max_ms": 1.2358,
+            "mean_ms": 1.21195,
+            "GiB_per_s": 51.5931979527819,
+            "GB_per_s": 55.39777447581311
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 12.923391819000244,
+            "min_ms": 12.042271614074707,
+            "max_ms": 15.947392463684082,
+            "mean_ms": 13.091537523269654,
+            "GiB_per_s": 19.344766722343333,
+            "GB_per_s": 20.771285105303434
+          },
+          "cpu_wall": {
+            "median_ms": 12.94865,
+            "min_ms": 12.0674,
+            "max_ms": 15.9774,
+            "mean_ms": 13.1209,
+            "GiB_per_s": 19.30703200719766,
+            "GB_per_s": 20.730767763434798
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 13.674479961395264,
+            "min_ms": 12.91801643371582,
+            "max_ms": 14.331328392028809,
+            "mean_ms": 13.579982376098632,
+            "GiB_per_s": 18.28223089329764,
+            "GB_per_s": 19.630395946158558
+          },
+          "cpu_wall": {
+            "median_ms": 13.69795,
+            "min_ms": 12.9377,
+            "max_ms": 14.3537,
+            "mean_ms": 13.60619,
+            "GiB_per_s": 18.250906157490718,
+            "GB_per_s": 19.596761267196918
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 4.716159820556641,
+            "min_ms": 4.642591953277588,
+            "max_ms": 6.8853759765625,
+            "mean_ms": 4.919137573242187,
+            "GiB_per_s": 53.00922986331131,
+            "GB_per_s": 56.91822716226716
+          },
+          "cpu_wall": {
+            "median_ms": 4.75595,
+            "min_ms": 4.6692,
+            "max_ms": 6.9198,
+            "mean_ms": 4.955385,
+            "GiB_per_s": 52.565733449678824,
+            "GB_per_s": 56.442026514155955
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 4.682671785354614,
+            "min_ms": 4.6787519454956055,
+            "max_ms": 4.804160118103027,
+            "mean_ms": 4.702271938323975,
+            "GiB_per_s": 53.388324328408544,
+            "GB_per_s": 57.32527674468896
+          },
+          "cpu_wall": {
+            "median_ms": 4.7189,
+            "min_ms": 4.7062,
+            "max_ms": 4.8387,
+            "mean_ms": 4.739605,
+            "GiB_per_s": 52.97844836720422,
+            "GB_per_s": 56.885175782491686
+          },
+          "verified": true
+        }
+      ]
+    },
+    "linux_rtx5090": {
+      "schema_version": 1,
+      "timestamp_utc": "2026-11-15T16:51:44.252030+00:00",
+      "run_condition": "Exclusive GPU window after R2VA generation; no concurrent model, conversion or kernel benchmark; no NUMA binding or affinity changes.",
+      "hardware": {
+        "os": "Linux-5.15.0-78-generic-x86_64-with-glibc2.35",
+        "python": "3.12.3",
+        "torch": "2.10.0+cu128",
+        "cuda_runtime": "12.8",
+        "cpu_model": "Intel(R) Xeon(R) Gold 6459C",
+        "cpu_host_visible_logical": 128,
+        "cpu_affinity_count": 128,
+        "cpu_effective_count": 16,
+        "torch_threads": 8,
+        "memory": {
+          "available_bytes": 22677671936,
+          "process_rss_bytes": 666083328,
+          "process_private_bytes": null,
+          "cgroup_version": 2,
+          "cgroup_limit_bytes": 98784247808,
+          "cgroup_current_bytes": 90468663296,
+          "cgroup_inactive_file_bytes": 14362087424,
+          "cgroup_working_set_bytes": 76106575872,
+          "cgroup_available_bytes": 22677671936,
+          "cgroup_effective_limit_bytes": 98784247808,
+          "host_available_bytes": 582363025408,
+          "host_total_bytes": 810183438336,
+          "available_scope": "cgroup",
+          "commit_source": "unavailable on this platform; RSS/available guard only"
+        },
+        "gpu": {
+          "name": "NVIDIA GeForce RTX 5090",
+          "driver_version": "595.71.05",
+          "pci.bus_id": "00000000:BD:00.0",
+          "memory.total": "32607",
+          "memory.used": "508",
+          "utilization.gpu": "0",
+          "utilization.memory": "0",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "13.25",
+          "clocks.sm": "2422",
+          "clocks.mem": "13801",
+          "temperature.gpu": "34",
+          "sampled_at_utc": "2026-11-15T16:51:41.684353+00:00"
+        },
+        "gpu_total_bytes": 33670758400,
+        "gpu_numa": {
+          "numa_node": null,
+          "local_cpulist": null,
+          "topology_cpu_affinity": "32-63,96-127",
+          "topology_numa_affinity": "1",
+          "topology_gpu_numa_id": "N/A"
+        },
+        "cpu_cgroup_quotas": [
+          {
+            "quota_us": 1600000,
+            "period_us": 100000
+          }
+        ],
+        "supplemental_metadata": "CPU quota and nvidia-smi topology sampled immediately after the timed run; GPU sysfs topology is not exposed in this container.",
+        "cpu_affinity_list": "0-127",
+        "cpu_live_crosscheck": {
+          "timestamp_utc": "2026-11-15T16:56:29+00:00",
+          "sockets": 2,
+          "cores_per_socket": 32,
+          "threads_per_core": 2,
+          "online_cpu_list": "0-127",
+          "numa_node_0_cpus": "0-31,64-95",
+          "numa_node_1_cpus": "32-63,96-127",
+          "quota_us": 1600000,
+          "period_us": 100000,
+          "container_memory_limit_bytes": 98784247808
+        }
+      },
+      "measurement": {
+        "warmup_per_case": 3,
+        "repeats_per_case": 20,
+        "setup_seconds_excluded": 0.12878328561782837,
+        "preallocated_gpu_bytes": 268435456,
+        "preallocated_host_bytes": 536870912,
+        "gpu_budget": {
+          "device": 0,
+          "budget_bytes": 10737418240,
+          "reserve_bytes": 268435456,
+          "free_bytes": 33138868224,
+          "total_bytes": 33670758400
+        },
+        "non_blocking_requested": true,
+        "cuda_event_scope": "Stream interval, including possible staging/submission gaps.",
+        "cpu_wall_scope": "Event submission, copy call, and wait for completion.",
+        "telemetry_scope": "Before/after and separate transfer load; none inside timed samples."
+      },
+      "pcie_under_copy_load": [
+        {
+          "name": "NVIDIA GeForce RTX 5090",
+          "driver_version": "595.71.05",
+          "pci.bus_id": "00000000:BD:00.0",
+          "memory.total": "32607",
+          "memory.used": "1214",
+          "utilization.gpu": "100",
+          "utilization.memory": "6",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "87.76",
+          "clocks.sm": "2842",
+          "clocks.mem": "13801",
+          "temperature.gpu": "36",
+          "sampled_at_utc": "2026-11-15T16:51:43.741354+00:00"
+        },
+        {
+          "name": "NVIDIA GeForce RTX 5090",
+          "driver_version": "595.71.05",
+          "pci.bus_id": "00000000:BD:00.0",
+          "memory.total": "32607",
+          "memory.used": "1214",
+          "utilization.gpu": "100",
+          "utilization.memory": "6",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "93.20",
+          "clocks.sm": "2842",
+          "clocks.mem": "13801",
+          "temperature.gpu": "37",
+          "sampled_at_utc": "2026-11-15T16:51:44.009668+00:00"
+        },
+        {
+          "name": "NVIDIA GeForce RTX 5090",
+          "driver_version": "595.71.05",
+          "pci.bus_id": "00000000:BD:00.0",
+          "memory.total": "32607",
+          "memory.used": "1214",
+          "utilization.gpu": "100",
+          "utilization.memory": "6",
+          "pcie.link.gen.current": "5",
+          "pcie.link.gen.max": "5",
+          "pcie.link.width.current": "16",
+          "pcie.link.width.max": "16",
+          "power.draw": "94.36",
+          "clocks.sm": "2842",
+          "clocks.mem": "13801",
+          "temperature.gpu": "37",
+          "sampled_at_utc": "2026-11-15T16:51:44.251475+00:00"
+        }
+      ],
+      "gpu_after": {
+        "name": "NVIDIA GeForce RTX 5090",
+        "driver_version": "595.71.05",
+        "pci.bus_id": "00000000:BD:00.0",
+        "memory.total": "32607",
+        "memory.used": "1214",
+        "utilization.gpu": "85",
+        "utilization.memory": "6",
+        "pcie.link.gen.current": "5",
+        "pcie.link.gen.max": "5",
+        "pcie.link.width.current": "16",
+        "pcie.link.width.max": "16",
+        "power.draw": "95.73",
+        "clocks.sm": "2842",
+        "clocks.mem": "13801",
+        "temperature.gpu": "37",
+        "sampled_at_utc": "2026-11-15T16:51:44.302257+00:00"
+      },
+      "memory_after": {
+        "free_bytes": 32398573568,
+        "allocated_bytes": 268435456,
+        "reserved_bytes": 622854144,
+        "peak_allocated_bytes": 536873984
+      },
+      "results": [
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.0663679987192154,
+            "min_ms": 0.0658240020275116,
+            "max_ms": 0.06886400282382965,
+            "mean_ms": 0.06649119965732098,
+            "GiB_per_s": 14.714358107008247,
+            "GB_per_s": 15.799421712808222
+          },
+          "cpu_wall": {
+            "median_ms": 0.0751195,
+            "min_ms": 0.074666,
+            "max_ms": 0.07953,
+            "mean_ms": 0.0753842,
+            "GiB_per_s": 13.00011980910416,
+            "GB_per_s": 13.958772356046033
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.08601599931716919,
+            "min_ms": 0.08419200032949448,
+            "max_ms": 0.0920960009098053,
+            "mean_ms": 0.08621439971029758,
+            "GiB_per_s": 11.353265761629926,
+            "GB_per_s": 12.190476287249266
+          },
+          "cpu_wall": {
+            "median_ms": 0.094598,
+            "min_ms": 0.092712,
+            "max_ms": 0.101697,
+            "mean_ms": 0.09481035,
+            "GiB_per_s": 10.323289075878982,
+            "GB_per_s": 11.084547242013574
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.04430399835109711,
+            "min_ms": 0.04335999861359596,
+            "max_ms": 0.04630399867892265,
+            "mean_ms": 0.0444831995293498,
+            "GiB_per_s": 22.042310769809273,
+            "GB_per_s": 23.667750971149854
+          },
+          "cpu_wall": {
+            "median_ms": 0.0528275,
+            "min_ms": 0.051503,
+            "max_ms": 0.054822,
+            "mean_ms": 0.053026000000000004,
+            "GiB_per_s": 18.485873834650512,
+            "GB_per_s": 19.849055889451517
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 1048576,
+          "MiB": 1.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.020831999368965626,
+            "min_ms": 0.02051199972629547,
+            "max_ms": 0.022143999114632607,
+            "mean_ms": 0.021062399726361036,
+            "GiB_per_s": 46.878001612021436,
+            "GB_per_s": 50.334870956366835
+          },
+          "cpu_wall": {
+            "median_ms": 0.029178,
+            "min_ms": 0.028839,
+            "max_ms": 0.030668,
+            "mean_ms": 0.02945615,
+            "GiB_per_s": 33.469137706491196,
+            "GB_per_s": 35.937212968675034
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.9396800100803375,
+            "min_ms": 0.9356480240821838,
+            "max_ms": 0.9450560212135315,
+            "mean_ms": 0.939664003252983,
+            "GiB_per_s": 16.628000843248913,
+            "GB_per_s": 17.85417995490363
+          },
+          "cpu_wall": {
+            "median_ms": 0.9489385,
+            "min_ms": 0.944702,
+            "max_ms": 0.954339,
+            "mean_ms": 0.949009,
+            "GiB_per_s": 16.46576674884621,
+            "GB_per_s": 17.67998242246468
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.847599983215332,
+            "min_ms": 0.8442559838294983,
+            "max_ms": 0.8560960292816162,
+            "mean_ms": 0.8484639912843704,
+            "GiB_per_s": 18.434403385341362,
+            "GB_per_s": 19.79378991532821
+          },
+          "cpu_wall": {
+            "median_ms": 0.856915,
+            "min_ms": 0.853074,
+            "max_ms": 0.864829,
+            "mean_ms": 0.8575091499999999,
+            "GiB_per_s": 18.2340138753552,
+            "GB_per_s": 19.578623317365203
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.5216639935970306,
+            "min_ms": 0.5194879770278931,
+            "max_ms": 0.5241600275039673,
+            "mean_ms": 0.521758395433426,
+            "GiB_per_s": 29.952230155393533,
+            "GB_per_s": 32.16096223992006
+          },
+          "cpu_wall": {
+            "median_ms": 0.5301309999999999,
+            "min_ms": 0.527982,
+            "max_ms": 0.532895,
+            "mean_ms": 0.530243,
+            "GiB_per_s": 29.473847030262338,
+            "GB_per_s": 31.64730227057087
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 16777216,
+          "MiB": 16.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 0.29473599791526794,
+            "min_ms": 0.29443201422691345,
+            "max_ms": 0.2964800000190735,
+            "mean_ms": 0.2949359998106956,
+            "GiB_per_s": 53.013544699388724,
+            "GB_per_s": 56.92286018222718
+          },
+          "cpu_wall": {
+            "median_ms": 0.3032745,
+            "min_ms": 0.303006,
+            "max_ms": 0.306458,
+            "mean_ms": 0.3035837,
+            "GiB_per_s": 51.52098181680293,
+            "GB_per_s": 55.32023299024482
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 4.368815898895264,
+            "min_ms": 4.295135974884033,
+            "max_ms": 4.965760231018066,
+            "mean_ms": 4.4311456203460695,
+            "GiB_per_s": 14.305935852276194,
+            "GB_per_s": 15.360881656050037
+          },
+          "cpu_wall": {
+            "median_ms": 4.3794665,
+            "min_ms": 4.305603,
+            "max_ms": 4.977171,
+            "mean_ms": 4.4419873,
+            "GiB_per_s": 14.271144670246935,
+            "GB_per_s": 15.323524908798824
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 3.269360065460205,
+            "min_ms": 3.2598400115966797,
+            "max_ms": 3.279871940612793,
+            "mean_ms": 3.269321620464325,
+            "GiB_per_s": 19.11689099658783,
+            "GB_per_s": 20.5266054078854
+          },
+          "cpu_wall": {
+            "median_ms": 3.2781645,
+            "min_ms": 3.268831,
+            "max_ms": 3.289357,
+            "mean_ms": 3.27834305,
+            "GiB_per_s": 19.06554719874491,
+            "GB_per_s": 20.47147542473845
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 1.4134079813957214,
+            "min_ms": 1.4080640077590942,
+            "max_ms": 1.4236479997634888,
+            "mean_ms": 1.414191997051239,
+            "GiB_per_s": 44.219362578016636,
+            "GB_per_s": 47.48017903063693
+          },
+          "cpu_wall": {
+            "median_ms": 1.4220105,
+            "min_ms": 1.416952,
+            "max_ms": 2.870522,
+            "mean_ms": 1.49534795,
+            "GiB_per_s": 43.95185548911207,
+            "GB_per_s": 47.19294548106361
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 67108864,
+          "MiB": 64.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 1.1740480065345764,
+            "min_ms": 1.1711679697036743,
+            "max_ms": 1.1784000396728516,
+            "mean_ms": 1.1741743981838226,
+            "GiB_per_s": 53.234620434713314,
+            "GB_per_s": 57.160238445516754
+          },
+          "cpu_wall": {
+            "median_ms": 1.182424,
+            "min_ms": 1.179658,
+            "max_ms": 1.186957,
+            "mean_ms": 1.1826886,
+            "GiB_per_s": 52.85751980676983,
+            "GB_per_s": 56.755329729437165
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pageable",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 21.69694423675537,
+            "min_ms": 21.486303329467773,
+            "max_ms": 22.980192184448242,
+            "mean_ms": 21.743267154693605,
+            "GiB_per_s": 11.52235988957797,
+            "GB_per_s": 12.372039724619889
+          },
+          "cpu_wall": {
+            "median_ms": 21.7076155,
+            "min_ms": 21.497098,
+            "max_ms": 22.992677,
+            "mean_ms": 21.754344500000002,
+            "GiB_per_s": 11.516695603899931,
+            "GB_per_s": 12.365957744184294
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pageable",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 12.110575675964355,
+            "min_ms": 12.090399742126465,
+            "max_ms": 12.950464248657227,
+            "mean_ms": 12.18900637626648,
+            "GiB_per_s": 20.64311447193799,
+            "GB_per_s": 22.165375386139495
+          },
+          "cpu_wall": {
+            "median_ms": 12.1195245,
+            "min_ms": 12.099428,
+            "max_ms": 12.959488,
+            "mean_ms": 12.19802225,
+            "GiB_per_s": 20.62787199283272,
+            "GB_per_s": 22.14900889882272
+          },
+          "verified": true
+        },
+        {
+          "direction": "H2D",
+          "host_memory": "pinned",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 4.756304025650024,
+            "min_ms": 4.750207901000977,
+            "max_ms": 4.771168231964111,
+            "mean_ms": 4.7577375888824465,
+            "GiB_per_s": 52.56182082806062,
+            "GB_per_s": 56.437825368683
+          },
+          "cpu_wall": {
+            "median_ms": 4.765895,
+            "min_ms": 4.759399,
+            "max_ms": 4.780266,
+            "mean_ms": 4.7668892,
+            "GiB_per_s": 52.456044457546795,
+            "GB_per_s": 56.32424885567139
+          },
+          "verified": true
+        },
+        {
+          "direction": "D2H",
+          "host_memory": "pinned",
+          "bytes": 268435456,
+          "MiB": 256.0,
+          "repeats": 20,
+          "cuda_event": {
+            "median_ms": 4.687920093536377,
+            "min_ms": 4.683680057525635,
+            "max_ms": 4.692448139190674,
+            "mean_ms": 4.68832802772522,
+            "GiB_per_s": 53.328554030751434,
+            "GB_per_s": 57.2610988762616
+          },
+          "cpu_wall": {
+            "median_ms": 4.6970405,
+            "min_ms": 4.692856,
+            "max_ms": 4.702766,
+            "mean_ms": 4.6976902,
+            "GiB_per_s": 53.22500412759907,
+            "GB_per_s": 57.149913014375755
+          },
+          "verified": true
+        }
+      ]
+    }
+  }
+}

@@ -13,7 +13,8 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "accelerate==1.15.0",
     "av==19.0.2",
-    "cuda-python==12.9.10",
+    "cuda-python==12.9.10; sys_platform == 'win32'",
+    "cuda-python==12.9.4; sys_platform == 'linux'",
     "diffusers @ https://github.com/huggingface/diffusers/archive/84532a058702c74ae5d1dd6ceb05683fc5d5e768.zip#sha256=54853398c21322d426db027507a213fc1bb21e94a0590ced6fb9faeb3b12063a",
     "filelock==4.2.9",
     "huggingface-hub==2.4.0",
