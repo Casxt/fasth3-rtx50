@@ -123,6 +123,9 @@ For FL2VA, select it with `--model fasth3-omni-ref2va`.
 
 ## Demos and benchmark results
 
+See [demo sources and usage conditions](examples/demos/README.md) for character
+credits and the terms that apply separately from the code license.
+
 Windows, RTX 5080 16 GB, 1344×768 at 24 fps, a 10 GiB PyTorch allocator cap,
 and a 256 MiB device memory reserve. Each row is one measured run. Generation
 includes local inference and export. End-to-end also includes OpenH3-IR and any
@@ -188,7 +191,10 @@ corresponding 768p samples. Timings include generation and export.
 
 ## License
 
-Original repository code and demo inputs use [Apache-2.0](LICENSE) with
-[attribution notices](NOTICE). Upstream model assets, converted weights and
-outputs are governed by their applicable terms. Read the upstream agreement
-and observe its usage, territory and distribution requirements.
+Original repository code and the generic orange-ball inputs
+[`examples/first.png`](examples/first.png) and [`examples/last.png`](examples/last.png)
+use [Apache-2.0](LICENSE) with [attribution notices](NOTICE).
+Character designs and character-based demo media are outside that code license;
+see [demo sources and usage conditions](examples/demos/README.md).
+Upstream model assets, converted weights and outputs remain governed by their
+applicable terms, including usage, territory and distribution requirements.

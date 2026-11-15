@@ -7,3 +7,9 @@ and CuTe DSL, PyTorch, and optionally OpenH3-IR. Their own licenses apply.
 MiniMax H3 and FastVideo model assets are obtained from their original upstream
 repositories. Those assets, converted weights and model outputs are separate
 from this repository's Apache-2.0 code license.
+
+The character-based demos in examples/demos/ are AI-generated adaptations,
+separate from the code license. Character credits: 上善无形 (whale-girl original)
+and ZipZipPipe (DeepSeek maid adaptation, Claude and Kimi designs).
+See examples/demos/README.md for sources, changes and asset-specific conditions,
+including the source chain used in historical versions of these demo files.
