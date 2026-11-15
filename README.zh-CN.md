@@ -33,9 +33,46 @@ powershell -ExecutionPolicy Bypass -File scripts/bootstrap-win.ps1
 fasth3 doctor --gpu
 ```
 
-Windows x64 锁定 Python 3.12.13 与 CUDA 12.8 版 PyTorch。Linux 和 WSL
-可沿用相同 CLI，环境需安装对应平台的 CUDA PyTorch 和 CuTe DSL。
-安装与测试细节见 [AGENTS.md](AGENTS.md)。
+Windows x64 锁定 Python 3.12.13 与 CUDA 12.8 版 PyTorch。
+两个平台的启动脚本共用 `scripts/bootstrap.py`。已有 Python 时可直接执行
+`python scripts/bootstrap.py`；Windows 还需在 `PATH` 中提供 uv。
+给这条 Python 命令加 `--dry-run` 可预览安装计划。
+
+## Linux / WSL 安装
+
+Linux x86_64 环境已在 Ubuntu 22.04、Python 3.12.3、PyTorch 2.10.0+cu128、
+torchvision 0.25.0+cu128 和 CuTe DSL 4.8.1 上检查。使用 Python 3.12 和兼容
+CUDA 12.8 的 NVIDIA 驱动。选择有足够空间存放环境、缓存和模型的工作目录；
+WSL 文件保存在其 Linux 文件系统中。在仓库根目录替换示例路径后执行：
+
+```bash
+export FASTH3_WORK_DIR=/path/to/data-disk/fasth3
+export XDG_CACHE_HOME="$FASTH3_WORK_DIR/cache" TMPDIR="$FASTH3_WORK_DIR/tmp"
+export CUDA_CACHE_PATH="$FASTH3_WORK_DIR/cache/cuda" TRITON_CACHE_DIR="$FASTH3_WORK_DIR/cache/triton"
+export CUTE_DSL_CACHE_DIR="$FASTH3_WORK_DIR/cache/cutlass" CUTE_DSL_DUMP_DIR="$FASTH3_WORK_DIR/tmp/cute-dump"
+python3.12 scripts/bootstrap.py
+source "$FASTH3_WORK_DIR/.venv-linux/bin/activate"
+fasth3 --help
+fasth3 doctor --gpu
+```
+
+显卡空闲时运行 GPU 检查。脚本创建独立 venv，先安装 `requirements-linux-cu128.txt`
+中的 CUDA 栈，再安装 `requirements-linux.txt` 中的固定版本和本项目，包含 `pe,test`
+依赖并检查包兼容性。可用 `FASTH3_PYTHON` 选择其他 Python 3.12 可执行文件，
+用 `FASTH3_PYPI_INDEX` 选择 PyPI 镜像。`bash scripts/bootstrap-linux.sh` 只是同一
+Python 入口的薄启动脚本。后续运行的 shell 也需保留上述缓存设置；
+脚本自身的 export 不会改变父 shell。后文准备权重和生成示例中的模型目录应改为
+`--models-dir "$FASTH3_WORK_DIR/models"`，将权重也保存在所选磁盘；工作目录设置
+不会改变 CLI 的模型路径。
+
+Linux 使用 cuda-python/cuda-bindings 12.9.4，以满足 Linux PyTorch wheel 对 binding
+版本的严格要求；Windows 保持 cuda-python 12.9.10。Linux 依赖文件是版本快照，
+仅固定的 Diffusers 源码包带哈希，并非完整 wheel 哈希锁。共享 bootstrap 已在复用
+现有依赖缓存的条件下创建并安装新的 `.venv-linux`，耗时 16.789 秒；连同包兼容性检查、
+CPU/GPU doctor 和 3 项真实 CuTe 内核检查，验证总耗时 36.297 秒。完整 CPU 套件为
+403 通过 / 51 跳过，耗时 4.69 秒；完整 GPU 套件为 454 通过 / 零跳过，耗时 39.64 秒，
+包含 10 GiB allocator 上限下的真实 NVFP4 checkpoint 检查。
+资源统计和检查细节见 [AGENTS.md](AGENTS.md)。
 
 ## 准备权重
 
@@ -156,6 +193,18 @@ R2VA 的输入和输出时长都会影响耗时和内存。三项替换任务分
 | --- | --- | ---: | ---: | ---: | ---: |
 | T2VA | 仅文本 | 149.2 | 8.50 / 22.01 | 24.32 / 42.83 | 3.52 / 4.03 |
 | R2VA | 1 张参考图 + 1 段 5 秒视频 | 186.8 | 17.08 / 27.90 | 32.95 / 48.71 | 3.56 / 4.09 |
+
+### Linux 验证
+
+Linux RTX 5090 上的 17 项核心生成案例均完成了完整 8 次 transformer forward，
+另完成一条 30 秒接续短片和橙球案例。对齐条件的 5 / 10 / 15 秒 R2VA 使用等长视频
+加一张短边为 512 的参考图，输出为 1344×768、24 fps，耗时分别为
+286.746 / 739.713 / 1260.393 秒；旧 Windows RTX 5080 记录为
+496.331 / 1344.252 / 2258.036 秒，速度约为旧记录的 1.73–1.82 倍。
+这是整机对照，CPU、操作系统和 I/O 条件有所不同。
+
+完整案例与输入条件见[验证报告](benchmarks/linux-validation.md)，
+硬件与传输实测见[带宽报告](benchmarks/transfer-baseline.md)。
 
 ## 许可证
 

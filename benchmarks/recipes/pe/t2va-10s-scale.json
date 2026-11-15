@@ -1,0 +1,24 @@
+{
+  "status": "complete",
+  "task": "t2va",
+  "num_frames": 240,
+  "aligned_num_frames": 243,
+  "duration_seconds": 10.0,
+  "prompt_enhancement": {
+    "compiler": "OpenH3-IR 0.4.1",
+    "model": "deepseek-flash",
+    "vision": true,
+    "thinking": true,
+    "status": "complete",
+    "source": "written",
+    "mode": "t2va",
+    "visual_samples": 0,
+    "prompt_tokens": 472,
+    "findings": [
+      "X12-brief-repaired",
+      "P5b-camera-no-amplitude"
+    ],
+    "prompt_sha256": "739251786bc598cfc91e8fb2dec65b33aba93bea0d10510a7faf411a103502bf",
+    "elapsed_seconds": 21.481182600022294
+  }
+}

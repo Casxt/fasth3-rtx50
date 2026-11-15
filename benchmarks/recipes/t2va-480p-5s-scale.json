@@ -1,0 +1,117 @@
+{
+  "task": "t2va",
+  "seed": 4277,
+  "model": {
+    "task": "t2va",
+    "source": "fasth3-v2-t2va",
+    "profile": "t2va-v2",
+    "sampler": "dmd2",
+    "vsa_tile_size": 64
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "local 480p benchmark",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 480,
+    "canvas_max_pixels": 399360,
+    "height": 480,
+    "width": 832
+  },
+  "requested_frames": 120,
+  "aligned_frames": 124,
+  "generated_export_frames": 120,
+  "published_frames": 120,
+  "published_conform_method": "No video speed change; normalized PTS origin",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 545,
+    "condition_video_rows": 0,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      14430,
+      96
+    ],
+    "video_rows": 14430,
+    "audio_shape": [
+      1,
+      414,
+      32
+    ],
+    "audio_rows": 414,
+    "token_tags_shape": [
+      15389
+    ],
+    "token_tags_rows": 15389,
+    "video_indices_shape": [
+      14430
+    ],
+    "video_indices_rows": 14430,
+    "audio_indices_shape": [
+      414
+    ],
+    "audio_indices_rows": 414,
+    "text_indices_shape": [
+      545
+    ],
+    "text_indices_rows": 545
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": false,
+  "pe_during_generation": false,
+  "id": "t2va-480p-5s-scale",
+  "debug_checks": false,
+  "reference_image_short_edge": null,
+  "comparison_class": "same_scale_new_prompt",
+  "normalized_argv": [
+    "python",
+    "bench_cli.py",
+    "case-t2va-480p-5s-scale.json"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Local scratch benchmark overrides; not a direct public CLI request.",
+  "inputs_ordered": [],
+  "prompt": {
+    "file": "prompts/t2va-480p-5s-scale.txt",
+    "original_runtime_raw_bytes_sha256": "eb5f7eb83f38cc79c6f57831887a21ea4d6d83429423cbb2527fc89af234c8bf",
+    "published_LF_utf8_sha256": "eb5f7eb83f38cc79c6f57831887a21ea4d6d83429423cbb2527fc89af234c8bf",
+    "canonical_text_sha256": "eb5f7eb83f38cc79c6f57831887a21ea4d6d83429423cbb2527fc89af234c8bf",
+    "runtime_file_bytes": 2520,
+    "published_bytes": 2520,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": {
+    "selected_wall_seconds": 26.50135770003544,
+    "total_attempt_wall_seconds": 26.50135770003544,
+    "attempts": 1,
+    "excluded_from_generation_timing": true
+  },
+  "pe_receipt_file": "pe/t2va-480p-5s-scale.json",
+  "pe_prompt_tokens": 546,
+  "publication": {
+    "file": "t2va-480p-5s.mp4",
+    "video_filter": "setpts=PTS-STARTPTS",
+    "audio_filter": null,
+    "video_time_scale_factor": 1.0,
+    "encoding": "libx265",
+    "preset": "medium",
+    "crf": 20
+  }
+}

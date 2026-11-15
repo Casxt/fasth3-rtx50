@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -121,6 +122,11 @@ def test_converted_shards_are_adopted_only_with_matching_hashes(tmp_path):
     (packed / INDEX).write_text(json.dumps({'weight_map': {'a': shard.name}}), encoding='utf-8')
     manifest = {'shard_sha256': {shard.name: hashlib.sha256(data).hexdigest()}}
     weights._verify_conversion(tmp_path, packed, manifest)
+    previous_mtime = shard.stat().st_mtime_ns
     shard.write_bytes(b'corrupted data!')
+    # The receipt intentionally caches unchanged size/mtime. Some Linux mounts
+    # give adjacent writes the same timestamp, so explicitly invalidate it.
+    os.utime(shard, ns=(previous_mtime, previous_mtime + 1_000_000_000))
+    assert shard.stat().st_mtime_ns != previous_mtime
     with pytest.raises(ValueError, match='checksum verification'):
         weights._verify_conversion(tmp_path, packed, manifest)

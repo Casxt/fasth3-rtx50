@@ -27,10 +27,44 @@ If Python works but `fasth3.exe` is missing, install the package with
 For a source-tree check, the equivalent entry point is
 `.\.venv-win\Scripts\python.exe -m fasth3_pipeline.cli`.
 
-For Linux or WSL, install the platform's CUDA PyTorch wheels and the dependencies
-and `pe,test` extras from `pyproject.toml` in a Python 3.12 environment. The Windows
-lock applies to Windows. Run `fasth3 doctor --gpu` after setup. Keep WSL model
-files on its Linux filesystem for local I/O.
+For Linux x86_64 or WSL, follow the cache exports and
+`python3.12 scripts/bootstrap.py` example in [README.md](README.md#install-on-linux--wsl).
+The PowerShell and Bash launchers delegate installation to this shared Python
+entry; `python scripts/bootstrap.py --dry-run` previews its plan without setup.
+Use Python 3.12; the checked Linux environment uses 3.12.3, rather than requiring
+the Windows patch version. `FASTH3_WORK_DIR` selects a work directory with room
+for the venv, caches and models. `FASTH3_PYTHON` and `FASTH3_PYPI_INDEX` select
+the interpreter and PyPI index. Keep WSL model files on its Linux filesystem.
+
+The bootstrap installs `requirements-linux-cu128.txt` with `--no-deps` from the
+official PyTorch CUDA 12.8 index first, then installs `requirements-linux.txt`,
+including `pe,test` dependencies, and this source tree in editable mode. These
+snapshots share the CUDA pins through a requirements include, so each version
+is maintained once. They use Torch 2.10.0+cu128, torchvision 0.25.0+cu128, CuTe DSL
+4.8.1 and the pinned Diffusers archive from `pyproject.toml`. Linux
+cuda-python/cuda-bindings must use 12.9.4 because the Linux Torch wheel requires
+that binding version; the Windows cuda-python pin remains 12.9.10. Do not force
+12.9.10 onto Linux by bypassing dependency checks. The Linux snapshots are not
+complete wheel-hash locks. The shared bootstrap was run in a new `.venv-linux`
+with the existing dependency cache: installation took 16.789 s, or 36.297 s
+including package compatibility checks, CPU/GPU doctor and three actual CuTe
+kernel checks. The full Linux CPU suite recorded 403 passed / 51 skipped in
+4.69 s; the full GPU suite recorded 454 passed / zero skipped in 39.64 s,
+including real NVFP4 checkpoint probes under the 10 GiB allocator cap.
+
+Keep UV/PIP/Hugging Face/Torch, CUDA, Triton and CuTe caches and temporary files
+on the chosen work disk. CuTe DSL 4.8.1 uses `CUTE_DSL_CACHE_DIR`. Bootstrap
+exports affect only its subprocesses, so retain the README cache exports in
+subsequent run shells. The Linux CLI defaults OMP/MKL threads to
+`min(8, effective_cpu_count())` before importing Torch and preserves explicit
+settings; bootstrap gives RAYON the same default. Do not use host CPU count
+alone to size thread pools in a container.
+
+Run the environment's `uv pip check`, `fasth3 --help` and `fasth3 doctor` after
+setup. Run `fasth3 doctor --gpu` with an idle GPU; it checks the device rather
+than executing project kernels. Coordinate any targeted CUDA tests separately
+from conversion or inference. Measured generation coverage and input conditions
+are documented in [benchmarks/linux-validation.md](benchmarks/linux-validation.md).
 
 `doctor` reports the optional `open-h3-ir` version but can succeed when it is
 missing. Before PE, explicitly check it with the same environment
@@ -142,6 +176,15 @@ from system available physical memory (`available_bytes`) and system commit
 used as total minus available. GPU records distinguish allocation, reservation,
 peak allocation and free board memory. Label sampled peaks and memory units.
 
+On Linux, report Python process-tree RSS separately from system or container
+memory; private commit and system commit are Windows-specific fields. Container
+`psutil` totals can describe the host. Use `available_scope`, cgroup limits and
+headroom, and the separately named `host_*` counters rather than treating host
+RAM as the instance allocation. The guard checks visible cgroup v1/v2 ancestors
+and credits reclaimable inactive file cache when estimating headroom; CPU
+capacity combines quota and affinity. Do not infer Python memory from
+container usage, which also includes file cache and other processes.
+
 ## Tests
 
 Run `.\.venv-win\Scripts\python.exe -m pytest tests -q` for the CPU suite. For
@@ -155,8 +198,12 @@ the live API. Select tests for the components changed.
 Publish owned source, package metadata, install locks, tests, the two READMEs,
 these instructions, the license and notices, demo commands and owned demo
 inputs. Approved H.265 CRF 20 samples under `examples/demos/` are tracked directly
-in Git and linked from both READMEs. Keep checkpoints, derived weights,
-benchmark reports, logs, local research notes, credentials and downloaded
-reference media outside the release tree. Treat the model directory as local
-user data. Pin and verify external dependencies and the model manifest before
-changing any revision.
+in Git. Keep the existing published sample links in both READMEs; Linux proof
+videos under `examples/demos/linux/` may be tracked without adding README media
+links. Curated, sanitized benchmark summaries and reproduction recipes may also
+be tracked, with input conditions, provenance and the scope of validation made
+explicit. Keep checkpoints, derived weights, raw logs and traces, research
+notes, private configurations, credentials and downloaded reference media
+outside the release tree. Treat the model directory as local user data. Pin
+and verify external dependencies and the model manifest before changing any
+revision.

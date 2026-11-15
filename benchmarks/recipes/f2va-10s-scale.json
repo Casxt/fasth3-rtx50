@@ -1,0 +1,138 @@
+{
+  "task": "f2va",
+  "seed": 4277,
+  "model": {
+    "task": "f2va",
+    "source": "fasth3-omni-ref2va",
+    "profile": "omni-pdd8",
+    "sampler": "pdd",
+    "vsa_tile_size": 128
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "pinned Diffusers MiniMaxH3Ref2VASetupStep.expected_configs",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 768,
+    "canvas_max_pixels": 1032192,
+    "height": 768,
+    "width": 1344
+  },
+  "requested_frames": 240,
+  "aligned_frames": 243,
+  "generated_export_frames": 240,
+  "published_frames": 240,
+  "published_conform_method": "No video speed change; normalized PTS origin",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 1711,
+    "condition_video_rows": 1008,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      73584,
+      96
+    ],
+    "video_rows": 73584,
+    "audio_shape": [
+      1,
+      810,
+      32
+    ],
+    "audio_rows": 810,
+    "token_tags_shape": [
+      76105
+    ],
+    "token_tags_rows": 76105,
+    "video_indices_shape": [
+      73584
+    ],
+    "video_indices_rows": 73584,
+    "audio_indices_shape": [
+      810
+    ],
+    "audio_indices_rows": 810,
+    "text_indices_shape": [
+      1711
+    ],
+    "text_indices_rows": 1711
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": false,
+  "pe_during_generation": false,
+  "id": "f2va-10s-scale",
+  "debug_checks": false,
+  "reference_image_short_edge": null,
+  "comparison_class": "same_scale_new_prompt",
+  "normalized_argv": [
+    "fasth3",
+    "f2va",
+    "--models-dir",
+    "models",
+    "--prompt-file",
+    "benchmarks/recipes/prompts/f2va-10s-scale.txt",
+    "--num-frames",
+    "240",
+    "--seed",
+    "4277",
+    "--output",
+    "outputs/linux-validation/f2va-10s-scale.mp4",
+    "--first-frame",
+    "benchmark-inputs/observatory-opening.png"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Public CLI request",
+  "inputs_ordered": [
+    {
+      "role": "first-frame",
+      "kind": "image",
+      "sha256": "3a46dad4efcf0b175faf814002fd42a388c1aa4cce4760c94f552554fdc51540",
+      "bytes": 2913160,
+      "width": 1672,
+      "height": 941,
+      "source_name": "observatory-opening.png"
+    }
+  ],
+  "prompt": {
+    "file": "prompts/f2va-10s-scale.txt",
+    "original_runtime_raw_bytes_sha256": "cbaad36030f6e6b1e11b70b6d6f2920962acd94beabdb579b258a8832123ae4b",
+    "published_LF_utf8_sha256": "cbaad36030f6e6b1e11b70b6d6f2920962acd94beabdb579b258a8832123ae4b",
+    "canonical_text_sha256": "cbaad36030f6e6b1e11b70b6d6f2920962acd94beabdb579b258a8832123ae4b",
+    "runtime_file_bytes": 3149,
+    "published_bytes": 3149,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": {
+    "selected_wall_seconds": 28.699769200000446,
+    "total_attempt_wall_seconds": 28.699769200000446,
+    "attempts": 1,
+    "excluded_from_generation_timing": true
+  },
+  "pe_receipt_file": "pe/f2va-10s-scale.json",
+  "pe_prompt_tokens": 698,
+  "publication": {
+    "file": "f2va-10s.mp4",
+    "video_filter": "setpts=PTS-STARTPTS",
+    "audio_filter": null,
+    "video_time_scale_factor": 1.0,
+    "encoding": "libx265",
+    "preset": "medium",
+    "crf": 20
+  }
+}

@@ -1,0 +1,150 @@
+{
+  "task": "r2va",
+  "seed": 4277,
+  "model": {
+    "task": "r2va",
+    "source": "fasth3-omni-ref2va",
+    "profile": "omni-pdd8",
+    "sampler": "pdd",
+    "vsa_tile_size": 128
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "pinned Diffusers MiniMaxH3Ref2VASetupStep.expected_configs",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 768,
+    "canvas_max_pixels": 1032192,
+    "height": 768,
+    "width": 1344
+  },
+  "requested_frames": 120,
+  "aligned_frames": 124,
+  "generated_export_frames": 120,
+  "published_frames": 120,
+  "published_conform_method": "No video speed change; normalized PTS origin",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 7284,
+    "condition_video_rows": 32640,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      69936,
+      96
+    ],
+    "video_rows": 69936,
+    "audio_shape": [
+      1,
+      414,
+      32
+    ],
+    "audio_rows": 414,
+    "token_tags_shape": [
+      77634
+    ],
+    "token_tags_rows": 77634,
+    "video_indices_shape": [
+      69936
+    ],
+    "video_indices_rows": 69936,
+    "audio_indices_shape": [
+      414
+    ],
+    "audio_indices_rows": 414,
+    "text_indices_shape": [
+      7284
+    ],
+    "text_indices_rows": 7284
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": true,
+  "pe_during_generation": false,
+  "id": "r2va-5s",
+  "debug_checks": false,
+  "reference_image_short_edge": 512,
+  "comparison_class": "strict_retained_request",
+  "normalized_argv": [
+    "fasth3",
+    "r2va",
+    "--models-dir",
+    "models",
+    "--reference",
+    "video:benchmark-inputs/reference-5s.mp4",
+    "--reference",
+    "image:benchmark-inputs/identity.png",
+    "--reference-image-short-edge",
+    "512",
+    "--prompt-file",
+    "benchmarks/recipes/prompts/r2va-5s.txt",
+    "--num-frames",
+    "120",
+    "--seed",
+    "4277",
+    "--output",
+    "outputs/linux-validation/r2va-5s.mp4"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Public CLI request",
+  "inputs_ordered": [
+    {
+      "role": "reference",
+      "kind": "video",
+      "sha256": "6917d648e51d4f3e90e2f9d49888a6719be2a315ef15e464dfe67e9c222d2329",
+      "bytes": 4419633,
+      "width": 1344,
+      "height": 768,
+      "frames": 120,
+      "fps": 24.0,
+      "duration_seconds": 5.0,
+      "file_has_audio": false,
+      "source_name": "reference-5s.mp4"
+    },
+    {
+      "role": "reference",
+      "kind": "image",
+      "sha256": "419873530c2e2d0521057cd8245072db9903287e64c7613b68c9e53e61624994",
+      "bytes": 2280391,
+      "width": 1024,
+      "height": 1536,
+      "source_name": "identity.png"
+    }
+  ],
+  "prompt": {
+    "file": "prompts/r2va-5s.txt",
+    "original_runtime_raw_bytes_sha256": "c996ccbeaec684cce27fc71d1d8cdcaeffd66d4a74384c6101f6023a1f9698b2",
+    "published_LF_utf8_sha256": "4f8a084759f3728b2e27cb9728b556043da3f55eaca784277f306c8ff4538eac",
+    "canonical_text_sha256": "4f8a084759f3728b2e27cb9728b556043da3f55eaca784277f306c8ff4538eac",
+    "runtime_file_bytes": 7710,
+    "published_bytes": 7676,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": null,
+  "pe_receipt_file": null,
+  "pe_prompt_tokens": null,
+  "publication": {
+    "file": "r2va-5s.mp4",
+    "video_filter": "setpts=PTS-STARTPTS",
+    "audio_filter": null,
+    "video_time_scale_factor": 1.0,
+    "encoding": "libx265",
+    "preset": "medium",
+    "crf": 20
+  }
+}

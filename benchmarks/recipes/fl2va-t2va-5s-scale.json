@@ -1,0 +1,151 @@
+{
+  "task": "fl2va",
+  "seed": 4277,
+  "model": {
+    "task": "fl2va",
+    "source": "fasth3-v2-t2va",
+    "profile": "t2va-v2",
+    "sampler": "dmd2",
+    "vsa_tile_size": 64
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "budget": {
+    "source": "nvidia-smi",
+    "allocator_cap_bytes": 10737418240,
+    "previous_allocator_cap_bytes": 10737418240,
+    "target_bytes": 12348030976,
+    "reserve_bytes": 268435456,
+    "additional_margin_bytes": 134217728,
+    "restored": true
+  },
+  "canvas": {
+    "source": "pinned Diffusers MiniMaxH3Ref2VASetupStep.expected_configs",
+    "requested_aspect_ratio": "16:9",
+    "canvas_multiple": 32,
+    "canvas_short_edge": 768,
+    "canvas_max_pixels": 1032192,
+    "height": 768,
+    "width": 1344
+  },
+  "requested_frames": 124,
+  "aligned_frames": 124,
+  "generated_export_frames": 124,
+  "published_frames": 120,
+  "published_conform_method": "Endpoint-preserving affine PTS scaling then fps=24",
+  "fps": 24,
+  "transformer_forwards": 8,
+  "actual_tokens": {
+    "qwen_prompt_embeds_rows": 2752,
+    "condition_video_rows": 2016,
+    "condition_audio_rows": 0,
+    "video_shape": [
+      1,
+      39312,
+      96
+    ],
+    "video_rows": 39312,
+    "audio_shape": [
+      1,
+      414,
+      32
+    ],
+    "audio_rows": 414,
+    "token_tags_shape": [
+      42478
+    ],
+    "token_tags_rows": 42478,
+    "video_indices_shape": [
+      39312
+    ],
+    "video_indices_rows": 39312,
+    "audio_indices_shape": [
+      414
+    ],
+    "audio_indices_rows": 414,
+    "text_indices_shape": [
+      2752
+    ],
+    "text_indices_rows": 2752
+  },
+  "cache_state": "weights and compiled kernels may be warm from earlier validation; no global cache flush",
+  "background_model_downloads": false,
+  "pe_during_generation": false,
+  "id": "fl2va-t2va-5s-scale",
+  "debug_checks": false,
+  "reference_image_short_edge": null,
+  "comparison_class": "same_scale_new_prompt",
+  "normalized_argv": [
+    "fasth3",
+    "fl2va",
+    "--models-dir",
+    "models",
+    "--prompt-file",
+    "benchmarks/recipes/prompts/fl2va-t2va-5s-scale.txt",
+    "--num-frames",
+    "124",
+    "--seed",
+    "4277",
+    "--output",
+    "outputs/linux-validation/fl2va-t2va-5s-scale.mp4",
+    "--first-frame",
+    "benchmark-inputs/observatory-opening.png",
+    "--last-frame",
+    "benchmark-inputs/observatory-endpoint.png",
+    "--model",
+    "fasth3-v2-t2va"
+  ],
+  "reference_assets_distributed": false,
+  "invocation_scope": "Public CLI request",
+  "inputs_ordered": [
+    {
+      "role": "first-frame",
+      "kind": "image",
+      "sha256": "3a46dad4efcf0b175faf814002fd42a388c1aa4cce4760c94f552554fdc51540",
+      "bytes": 2913160,
+      "width": 1672,
+      "height": 941,
+      "source_name": "observatory-opening.png"
+    },
+    {
+      "role": "last-frame",
+      "kind": "image",
+      "sha256": "e7a9db911e19b5e4294258dd88967076a6ab082b44d7802fcb005157f67e22f0",
+      "bytes": 2844876,
+      "width": 1672,
+      "height": 941,
+      "source_name": "observatory-endpoint.png"
+    }
+  ],
+  "prompt": {
+    "file": "prompts/fl2va-t2va-5s-scale.txt",
+    "original_runtime_raw_bytes_sha256": "5e703a4b45a231bf0c0fee1bc9f93a9a5da4aaec3bba0b995b49d1180c635005",
+    "published_LF_utf8_sha256": "5e703a4b45a231bf0c0fee1bc9f93a9a5da4aaec3bba0b995b49d1180c635005",
+    "canonical_text_sha256": "5e703a4b45a231bf0c0fee1bc9f93a9a5da4aaec3bba0b995b49d1180c635005",
+    "runtime_file_bytes": 3247,
+    "published_bytes": 3247,
+    "newline_policy": "Published UTF-8 LF; runtime text readers normalize CRLF to LF."
+  },
+  "pe_measurement": {
+    "selected_wall_seconds": 82.21709229995031,
+    "total_attempt_wall_seconds": 82.21709229995031,
+    "attempts": 1,
+    "excluded_from_generation_timing": true
+  },
+  "pe_receipt_file": "pe/fl2va-t2va-5s-scale.json",
+  "pe_prompt_tokens": 722,
+  "publication": {
+    "file": "fl2va-t2va-5s.mp4",
+    "video_filter": "setpts=(119/123)*(PTS-STARTPTS),fps=24,trim=end_frame=120",
+    "audio_filter": "asetpts=PTS-STARTPTS,atempo=1.03361344537815,apad,atrim=duration=5",
+    "video_time_scale_factor": 0.967479674796748,
+    "encoding": "libx265",
+    "preset": "medium",
+    "crf": 20
+  }
+}

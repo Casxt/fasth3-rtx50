@@ -1,0 +1,61 @@
+{
+  "id": "orange-smoke",
+  "comparison_class": "functional_smoke",
+  "task": "r2va",
+  "seed": 4277,
+  "transformer_forwards": 8,
+  "model": {
+    "task": "r2va",
+    "source": "fasth3-omni-ref2va",
+    "profile": "omni-pdd8",
+    "sampler": "pdd",
+    "vsa_tile_size": 128
+  },
+  "precision": {
+    "qwen_weights": "NVFP4 QAD",
+    "qwen_linear_compute": "CuTe BF16 dequantization fallback",
+    "dit": "MXFP8 W8A8 selected projections with BF16 passthrough",
+    "vae_encode": "BF16 with designated FP32 operations",
+    "vae_decode": "BF16 plus MXFP8 decoder FFN overlay"
+  },
+  "references_ordered": [
+    {
+      "kind": "image",
+      "repository_asset": "examples/first.png",
+      "bytes": 5271,
+      "sha256": "2f53653c9d7c85765145588656ff516e246501f08b8aaf4947bae1035fa2ce5f",
+      "width": 1344,
+      "height": 768
+    }
+  ],
+  "reference_image_short_edge": 256,
+  "requested_frames": 120,
+  "aligned_frames": 124,
+  "published_frames": 120,
+  "fps": 24,
+  "prompt": {
+    "file": "prompts/orange-smoke.txt",
+    "source": "Literal CLI --prompt argument",
+    "original_runtime_raw_bytes_sha256": "0c0e677527f0deb61ba18d159415b239c36e011bcaee030d8422ae652a39ff33",
+    "published_LF_utf8_sha256": "0c0e677527f0deb61ba18d159415b239c36e011bcaee030d8422ae652a39ff33",
+    "canonical_text_sha256": "0c0e677527f0deb61ba18d159415b239c36e011bcaee030d8422ae652a39ff33"
+  },
+  "pe_enabled": false,
+  "normalized_argv": [
+    "fasth3",
+    "r2va",
+    "--models-dir",
+    "models",
+    "--reference",
+    "image:examples/first.png",
+    "--prompt",
+    "Use the orange ball and flat illustration style as references. Show the ball rolling gently across a simple tiled floor. Keep the camera static. Soft rolling sound, no music, no subtitles.",
+    "--num-frames",
+    "120",
+    "--seed",
+    "4277",
+    "--output",
+    "outputs/linux-validation/orange-smoke.mp4"
+  ],
+  "command_evidence_script_sha256": "3d159cd55a04fa87b5152d5a54dc126e39f5d3a665ef398cdf41ae16943fbec6"
+}

@@ -4,10 +4,14 @@
 
 ## 中文
 
-本说明涵盖本目录的 16 个生成 MP4：`t2va-{5,10,15}s.mp4`、`f2va-{5,10,15}s.mp4`、
+本说明涵盖本目录原有的 16 个生成 MP4：`t2va-{5,10,15}s.mp4`、`f2va-{5,10,15}s.mp4`、
 `fl2va-{5,10,15}s.mp4`、`fl2va-t2va-{5,10,15}s.mp4`、`r2va-{5,10,15}s.mp4`，
 以及 `the-spare-moon-30s.mp4`。
-这些是本项目 AI 生成、改编并后期封装的样片，不是 B 站原视频的转存。
+本说明也涵盖 `linux/` 子目录中的 Linux 基准测试和功能验证视频。同源角色衍生视频
+沿用下述对应的署名、非商业使用及 CC 许可链；自有橙球样例及原创素材在本项目可许可
+范围内按 Apache-2.0 提供，不将角色相关权利覆盖为 Apache。所有模型生成视频仍须
+遵守适用的模型输出条款。
+其中的角色样片是本项目 AI 生成、改编并后期封装的视频，不是 B 站原视频的转存。
 文字生成任务使用新编提示词；帧控和参考任务使用 GPT Image 按角色设定重绘的新关键帧或身份图，
 再由 H3 生成视频。改编包括新的场景、剧情、镜头和动作，以及 R2VA 中的 Kimi 身份替换。
 本说明不将所列创作者或 AI 品牌视为本项目的背书方。
@@ -53,10 +57,17 @@ ZipZipPipe 在[《“亿万”身家的她们》](https://www.bilibili.com/video
 
 ## English
 
-This notice covers the 16 generated MP4s in this directory:
+This notice covers the 16 original generated MP4s at this directory level:
 `t2va-{5,10,15}s.mp4`, `f2va-{5,10,15}s.mp4`, `fl2va-{5,10,15}s.mp4`,
 `fl2va-t2va-{5,10,15}s.mp4`, `r2va-{5,10,15}s.mp4`, and
-`the-spare-moon-30s.mp4`. They are AI-generated adaptations packaged by this
+`the-spare-moon-30s.mp4`. It also covers the Linux benchmark and functional proof
+videos under `linux/`. Character-derived Linux videos retain the corresponding credits,
+non-commercial conditions and CC license chain below. Owned orange-ball examples
+and original assets use Apache-2.0 within this project's licensable contributions;
+that does not apply Apache terms to character rights. All model-generated videos
+remain subject to the applicable model-output terms.
+
+The character samples are AI-generated adaptations packaged by this
 project, rather than copies of the original Bilibili video. Text-to-video uses
 new prompts; frame-controlled and reference tasks use new GPT Image keyframes
 or identity illustrations based on the character designs, followed by H3 video
