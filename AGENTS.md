@@ -198,10 +198,11 @@ the live API. Select tests for the components changed.
 Publish owned source, package metadata, install locks, tests, the two READMEs,
 these instructions, the license and notices, demo commands and owned demo
 inputs. Approved H.265 CRF 20 samples under `examples/demos/` are tracked directly
-in Git. Keep the existing published sample links in both READMEs; Linux proof
-videos under `examples/demos/linux/` may be tracked without adding README media
-links. Curated, sanitized benchmark summaries and reproduction recipes may also
-be tracked, with input conditions, provenance and the scope of validation made
+in Git. Keep the existing published sample links in both READMEs as raw MP4 links.
+The selected Linux T2VA 5 s and Windows R2VA 10 s samples also use GitHub-native
+video attachments in both READMEs. Other Linux proof videos may remain tracked
+without README media links. Curated, sanitized benchmark summaries and
+reproduction recipes may also be tracked, with input conditions, provenance and the scope of validation made
 explicit. Keep checkpoints, derived weights, raw logs and traces, research
 notes, private configurations, credentials and downloaded reference media
 outside the release tree. Treat the model directory as local user data. Pin
