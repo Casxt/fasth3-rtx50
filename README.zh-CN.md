@@ -158,6 +158,7 @@ https://github.com/user-attachments/assets/dc83d8f6-61ae-4fb6-b4cc-a4e09a57ebe1
 
 表中链接通过 GitHub 下载原始 MP4。私有仓库需登录有访问权限的账号。
 按住 Ctrl / ⌘ 点击可在新标签页打开；浏览器也可能直接下载视频。
+若未开始下载，可在[样片目录](examples/demos/)中打开文件并点击 **View raw**。
 
 Windows、RTX 5080 16 GB，1344×768、24 fps，PyTorch 显存上限 10 GiB，整卡至少预留 256 MiB。
 每行是一次实测。生成耗时含本地推理与导出，全流程另含 OpenH3-IR 与当次样片封装。

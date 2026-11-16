@@ -183,7 +183,8 @@ https://github.com/user-attachments/assets/dc83d8f6-61ae-4fb6-b4cc-a4e09a57ebe1
 
 Table links download the raw MP4 files through GitHub. For a private repository,
 sign in with an account that has access. Ctrl / ⌘-click opens a link in a new tab;
-your browser may download the MP4 instead of playing it.
+your browser may download the MP4 instead of playing it. If no download starts,
+open the file in the [demo directory](examples/demos/) and choose **View raw**.
 
 Windows, RTX 5080 16 GB, 1344×768 at 24 fps, a 10 GiB PyTorch allocator cap,
 and a 256 MiB device memory reserve. Each row is one measured run. Generation
