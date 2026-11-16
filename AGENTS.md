@@ -198,7 +198,9 @@ the live API. Select tests for the components changed.
 Publish owned source, package metadata, install locks, tests, the two READMEs,
 these instructions, the license and notices, demo commands and owned demo
 inputs. Approved H.265 CRF 20 samples under `examples/demos/` are tracked directly
-in Git. Keep the existing published sample links in both READMEs as raw MP4 links.
+in Git. Keep sample links in both READMEs on GitHub’s `/raw/refs/heads/main/`
+route so private-repository downloads use the reader’s GitHub session. Do not
+commit expiring raw-access tokens or use unauthenticated raw-host URLs.
 The selected Linux T2VA 5 s and Windows R2VA 10 s samples also use GitHub-native
 video attachments in both READMEs. Other Linux proof videos may remain tracked
 without README media links. Curated, sanitized benchmark summaries and

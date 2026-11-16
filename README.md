@@ -181,8 +181,9 @@ https://github.com/user-attachments/assets/92b28005-e91a-4202-8e2d-9a81cd898797
 
 https://github.com/user-attachments/assets/dc83d8f6-61ae-4fb6-b4cc-a4e09a57ebe1
 
-Table samples link directly to raw MP4 files. If GitHub opens a link in the same
-tab, Ctrl / ⌘-click to open it in a new tab.
+Table links download the raw MP4 files through GitHub. For a private repository,
+sign in with an account that has access. Ctrl / ⌘-click opens a link in a new tab;
+your browser may download the MP4 instead of playing it.
 
 Windows, RTX 5080 16 GB, 1344×768 at 24 fps, a 10 GiB PyTorch allocator cap,
 and a 256 MiB device memory reserve. Each row is one measured run. Generation
@@ -197,21 +198,21 @@ H.265 CRF 20. The release transcode is excluded from the timings.
 
 | Mode | Input | Output | Generation (s) | End to end (s) | Python memory (GiB) | System memory (GiB) | CUDA allocated / reserved (GiB) | Demo |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| T2VA | Text only | 5 s | 230.8 | 270.2 | 8.78 / 22.74 | 27.57 / 48.57 | 3.65 / 4.52 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/t2va-5s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| T2VA | Text only | 10 s | 460.3 | 496.0 | 9.07 / 23.06 | 27.96 / 48.94 | 3.85 / 6.10 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/t2va-10s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| T2VA | Text only | 15 s | 720.2 | 745.0 | 9.47 / 23.52 | 28.38 / 49.92 | 5.15 / 7.65 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/t2va-15s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| F2VA | 1 first-frame image | 5 s | 236.5 | 278.4 | 16.86 / 28.42 | 35.50 / 54.51 | 3.66 / 4.52 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/f2va-5s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| F2VA | 1 first-frame image | 10 s | 414.3 | 448.7 | 16.86 / 28.81 | 36.00 / 55.18 | 3.70 / 5.78 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/f2va-10s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| F2VA | 1 first-frame image | 15 s | 673.7 | 705.1 | 16.86 / 29.27 | 35.70 / 55.76 | 4.77 / 7.34 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/f2va-15s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (Omni) | 2 images (first and last frames) | 5 s | 246.1 | 321.4 | 16.91 / 28.52 | 36.09 / 54.84 | 3.67 / 4.54 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-5s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (Omni) | 2 images (first and last frames) | 10 s | 456.3 | 518.6 | 16.95 / 28.89 | 36.13 / 55.03 | 3.71 / 5.92 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-10s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (Omni) | 2 images (first and last frames) | 15 s | 769.4 | 855.7 | 16.91 / 29.24 | 36.30 / 54.95 | 4.86 / 7.46 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-15s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (T2VA) | 2 images (first and last frames) | 5 s | 266.0 | — | 16.92 / 28.32 | 37.39 / 56.17 | 3.67 / 4.67 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-t2va-5s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (T2VA) | 2 images (first and last frames) | 10 s | 527.9 | — | 16.91 / 28.69 | 37.46 / 56.23 | 4.01 / 6.35 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-t2va-10s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| FL2VA (T2VA) | 2 images (first and last frames) | 15 s | 842.4 | — | 16.91 / 29.08 | 37.39 / 56.82 | 5.32 / 7.92 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/fl2va-t2va-15s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| R2VA | 1 reference image + 1 × 5 s video | 5 s | 496.3 | — | 17.41 / 28.92 | 34.93 / 53.26 | 3.73 / 6.38 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/r2va-5s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1344.3 | — | 17.90 / 29.80 | 36.18 / 54.10 | 6.64 / 7.88 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/r2va-10s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
-| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2258.0 | — | 18.34 / 30.64 | 35.76 / 54.76 | 8.49 / 8.74 | <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/r2va-15s.mp4" target="_blank" rel="noopener noreferrer">MP4 ↗</a> |
+| T2VA | Text only | 5 s | 230.8 | 270.2 | 8.78 / 22.74 | 27.57 / 48.57 | 3.65 / 4.52 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/t2va-5s.mp4) |
+| T2VA | Text only | 10 s | 460.3 | 496.0 | 9.07 / 23.06 | 27.96 / 48.94 | 3.85 / 6.10 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/t2va-10s.mp4) |
+| T2VA | Text only | 15 s | 720.2 | 745.0 | 9.47 / 23.52 | 28.38 / 49.92 | 5.15 / 7.65 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/t2va-15s.mp4) |
+| F2VA | 1 first-frame image | 5 s | 236.5 | 278.4 | 16.86 / 28.42 | 35.50 / 54.51 | 3.66 / 4.52 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/f2va-5s.mp4) |
+| F2VA | 1 first-frame image | 10 s | 414.3 | 448.7 | 16.86 / 28.81 | 36.00 / 55.18 | 3.70 / 5.78 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/f2va-10s.mp4) |
+| F2VA | 1 first-frame image | 15 s | 673.7 | 705.1 | 16.86 / 29.27 | 35.70 / 55.76 | 4.77 / 7.34 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/f2va-15s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 5 s | 246.1 | 321.4 | 16.91 / 28.52 | 36.09 / 54.84 | 3.67 / 4.54 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-5s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 10 s | 456.3 | 518.6 | 16.95 / 28.89 | 36.13 / 55.03 | 3.71 / 5.92 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-10s.mp4) |
+| FL2VA (Omni) | 2 images (first and last frames) | 15 s | 769.4 | 855.7 | 16.91 / 29.24 | 36.30 / 54.95 | 4.86 / 7.46 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-15s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 5 s | 266.0 | — | 16.92 / 28.32 | 37.39 / 56.17 | 3.67 / 4.67 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-t2va-5s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 10 s | 527.9 | — | 16.91 / 28.69 | 37.46 / 56.23 | 4.01 / 6.35 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-t2va-10s.mp4) |
+| FL2VA (T2VA) | 2 images (first and last frames) | 15 s | 842.4 | — | 16.91 / 29.08 | 37.39 / 56.82 | 5.32 / 7.92 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/fl2va-t2va-15s.mp4) |
+| R2VA | 1 reference image + 1 × 5 s video | 5 s | 496.3 | — | 17.41 / 28.92 | 34.93 / 53.26 | 3.73 / 6.38 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/r2va-5s.mp4) |
+| R2VA | 1 reference image + 1 × 10 s video | 10 s | 1344.3 | — | 17.90 / 29.80 | 36.18 / 54.10 | 6.64 / 7.88 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/r2va-10s.mp4) |
+| R2VA | 1 reference image + 1 × 15 s video | 15 s | 2258.0 | — | 18.34 / 30.64 | 35.76 / 54.76 | 8.49 / 8.74 | [MP4](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/r2va-15s.mp4) |
 
 R2VA runtime and memory depend on both input and output duration. The three
 character-replacement cases use the 0–5, 5–15 and 15–30 second segments of
@@ -231,7 +232,7 @@ Historical FL2VA clips were conformed to 120, 240 and 360 frames while preservin
 both endpoints. The historical 15 s FL2VA samples used a local wrapper to generate
 362 aligned frames before conforming the export.
 
-**Chained short film** · <a href="https://raw.githubusercontent.com/Casxt/fasth3-rtx50/refs/heads/main/examples/demos/the-spare-moon-30s.mp4" target="_blank" rel="noopener noreferrer">The Spare Moon (30 s) ↗</a> ·
+**Chained short film** · [The Spare Moon (30 s)](https://github.com/Casxt/fasth3-rtx50/raw/refs/heads/main/examples/demos/the-spare-moon-30s.mp4) ·
 The last frame of a 15 s F2VA render starts a 15 s FL2VA continuation.
 Combined generation took 1442.0 s and end-to-end took 1555.8 s. Python memory
 peaked at 16.93 / 29.27 GiB, system memory at 36.20 / 55.76 GiB, and CUDA
