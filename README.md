@@ -2,12 +2,15 @@
 
 [简体中文](README.zh-CN.md)
 
-FastH3 RTX50 adapts FastH3 video and stereo audio generation for systems with
-limited RAM and VRAM. It supports NVIDIA RTX 50-series GPUs only. Components
-use a mix of BF16 and MXFP8 to keep memory usage low while balancing speed and
-output quality. The core kernels are written in CuTe DSL and can serve as a
-reference for learning and adapting the implementation. The CLI prepares
-upstream weights locally and runs all four generation modes.
+FastH3 RTX50 is a high-performance implementation of FastH3 video and stereo
+audio generation for consumer NVIDIA RTX 50-series GPUs, optimized for systems
+with limited RAM and VRAM. It supports RTX 50-series GPUs only. Components use
+a mix of BF16 and MXFP8 to balance speed, memory usage and output quality.
+MXFP8 computation uses an independent scale for each group of 32 elements to
+adapt to local value ranges, limit quantization error and retain more numerical
+detail in weights and activations. The core kernels are written in CuTe DSL
+and can serve as a reference for learning and adapting the implementation.
+The CLI prepares upstream weights locally and runs all four generation modes.
 
 Performance work so far has focused on the DiT. The VAE and Qwen conditioning
 encoder have had limited tuning.
@@ -151,6 +154,9 @@ then compare renders with a fixed seed and pass the chosen prompt via
 `--prompt-file`.
 
 ## Known quality limitations
+
+480p output has poor visual quality in our tests and is mainly useful for speed
+tests. We recommend 720p or higher, preferably the default 768p canvas.
 
 T2VA can produce patchy blur, particularly on faces and hair. The severity
 varies across generations, so quality is partly down to the seed and individual
