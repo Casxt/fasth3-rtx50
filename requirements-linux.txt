@@ -1,6 +1,6 @@
 # Linux x86_64 / Python 3.12 installed-environment snapshot.
-# Version pins only; this file is not a wheel-hash lock.
--r requirements-linux-cu128.txt
+# Version snapshot with selected artifact hashes, not a complete wheel-hash lock.
+# CUDA 12.8 PyTorch wheels are pinned explicitly to the official index artifacts.
 
 accelerate==1.15.0
 annotated-doc==0.0.6
@@ -38,10 +38,25 @@ mdurl==0.1.2
 mpmath==1.3.0
 networkx==3.7
 numpy==2.5.4
+nvidia-cublas-cu12==12.8.4.1
+nvidia-cuda-cupti-cu12==12.8.90
+nvidia-cuda-nvrtc-cu12==12.8.93
+nvidia-cuda-runtime-cu12==12.8.90
+nvidia-cudnn-cu12==9.10.2.21
+nvidia-cufft-cu12==11.3.3.83
+nvidia-cufile-cu12==1.13.1.3
+nvidia-curand-cu12==10.3.9.90
+nvidia-cusolver-cu12==11.7.3.90
+nvidia-cusparse-cu12==12.5.8.93
+nvidia-cusparselt-cu12==0.7.1
 nvidia-cutlass-dsl-libs-base==4.8.1
 nvidia-cutlass-dsl-libs-core==4.8.1
 nvidia-cutlass-dsl-libs-cu12==4.8.1
 nvidia-cutlass-dsl==4.8.1
+nvidia-nccl-cu12==2.27.5
+nvidia-nvjitlink-cu12==12.8.93
+nvidia-nvshmem-cu12==3.4.5
+nvidia-nvtx-cu12==12.8.90
 open-h3-ir==0.4.1
 opentelemetry-api==1.45.2
 packaging==26.3
@@ -67,8 +82,11 @@ starlette==1.10.0
 sympy==1.14.0
 tiktoken==0.14.0
 tokenizers==0.23.3
+torch @ https://download-r2.pytorch.org/whl/cu128/torch-2.10.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=628e89bd5110ced7debee2a57c69959725b7fbc64eab81a39dd70e46c7e28ba5
+torchvision @ https://download-r2.pytorch.org/whl/cu128/torchvision-0.25.0%2Bcu128-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=1255a0ca2bf987acf9f103b96c5c4cfe3415fc4a1eef17fa08af527a04a4f573
 tqdm==4.70.1
 transformers==5.22.2
+triton==3.6.0
 truststore==0.10.5
 typer==0.29.1
 typing-extensions==4.16.0

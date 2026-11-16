@@ -37,21 +37,22 @@ Install [uv](https://docs.astral.sh/uv/getting-started/installation/) and an
 NVIDIA driver compatible with CUDA 12.8. Run from the repository root.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/bootstrap-win.ps1
+uv run --no-project --python 3.12.13 scripts/bootstrap.py
 .\.venv-win\Scripts\Activate.ps1
-fasth3 doctor --gpu
 ```
 
 The Windows x64 lock uses Python 3.12.13 and the CUDA 12.8 PyTorch wheels.
-Both platform launchers use `scripts/bootstrap.py`. With an available Python,
-you can run `python scripts/bootstrap.py` directly; Windows also requires uv
-on `PATH`. Add `--dry-run` to the Python command to inspect its plan.
+The installer uses the single Windows dependency file, `requirements-win.lock`,
+then installs this project. uv supplies Python if needed. Add `--dry-run` after
+`scripts/bootstrap.py` to inspect the installation plan. The PowerShell launcher,
+`scripts/bootstrap-win.ps1`, remains available as an alternative.
 
 ## Install on Linux / WSL
 
 The Linux x86_64 environment was checked on Ubuntu 22.04 with Python 3.12.3,
 PyTorch 2.10.0+cu128, torchvision 0.25.0+cu128 and CuTe DSL 4.8.1. Use Python
-3.12 and an NVIDIA driver compatible with CUDA 12.8. Choose a work directory
+3.12, install [uv](https://docs.astral.sh/uv/getting-started/installation/) and
+an NVIDIA driver compatible with CUDA 12.8. Choose a work directory
 with space for the environment, caches and models; keep WSL files on its Linux
 filesystem. From the repository root, replace the example path and run:
 
@@ -60,16 +61,14 @@ export FASTH3_WORK_DIR=/path/to/data-disk/fasth3
 export XDG_CACHE_HOME="$FASTH3_WORK_DIR/cache" TMPDIR="$FASTH3_WORK_DIR/tmp"
 export CUDA_CACHE_PATH="$FASTH3_WORK_DIR/cache/cuda" TRITON_CACHE_DIR="$FASTH3_WORK_DIR/cache/triton"
 export CUTE_DSL_CACHE_DIR="$FASTH3_WORK_DIR/cache/cutlass" CUTE_DSL_DUMP_DIR="$FASTH3_WORK_DIR/tmp/cute-dump"
-python3.12 scripts/bootstrap.py
+uv run --no-project --python 3.12 scripts/bootstrap.py
 source "$FASTH3_WORK_DIR/.venv-linux/bin/activate"
-fasth3 --help
-fasth3 doctor --gpu
 ```
 
-Run the GPU check while the GPU is idle. The bootstrap creates a separate venv,
-installs the CUDA stack from `requirements-linux-cu128.txt` first, then the
-versions in `requirements-linux.txt` and this project. It includes `pe,test`
-dependencies and checks package compatibility. Set `FASTH3_PYTHON` to select
+The bootstrap creates a separate venv and installs the single Linux dependency
+file, `requirements-linux.txt`, then this project. The file includes the CUDA
+dependencies and explicit official PyTorch CUDA 12.8 wheel URLs, plus `pe,test`
+dependencies. The installer also checks package compatibility. Set `FASTH3_PYTHON` to select
 another Python 3.12 executable or `FASTH3_PYPI_INDEX` to select a PyPI mirror.
 `bash scripts/bootstrap-linux.sh` is a thin launcher for the same Python entry.
 Keep the cache exports in subsequent run shells; the script's own exports do
@@ -78,15 +77,15 @@ use `--models-dir "$FASTH3_WORK_DIR/models"` to keep weights on that disk;
 the work-directory setting does not change the CLI's model path.
 
 Linux uses cuda-python/cuda-bindings 12.9.4 to match the Linux PyTorch wheel's
-exact binding requirement; Windows keeps cuda-python 12.9.10. The Linux files
-are version snapshots, with a hash for the pinned Diffusers archive, rather
-than a complete wheel-hash lock. The shared bootstrap installed a new
-`.venv-linux` with the existing dependency cache in 16.789 s. Including package
-compatibility checks, CPU/GPU doctor and three actual CuTe kernel checks, the
-verification took 36.297 s. The full CPU suite recorded 403 passed / 51 skipped
-in 4.69 s; the full GPU suite recorded 454 passed / zero skipped in 39.64 s,
-including real NVFP4 checkpoint probes under the 10 GiB allocator cap.
-See [AGENTS.md](AGENTS.md) for resource reporting and checks.
+exact binding requirement; Windows keeps cuda-python 12.9.10. The Linux file
+is a version snapshot, with hashes for the PyTorch wheels and pinned Diffusers
+archive, rather than a complete wheel-hash lock. See [AGENTS.md](AGENTS.md)
+for checks and [Linux validation](benchmarks/linux-validation.md) for the
+recorded environment, tests and generation results.
+
+After activation, optionally run `fasth3 doctor --gpu` while the GPU is idle to
+check installed packages, PyTorch CUDA access and the SM120 GPU requirement.
+This is a diagnostic command; installation is handled by the uv command above.
 
 ## Prepare weights
 

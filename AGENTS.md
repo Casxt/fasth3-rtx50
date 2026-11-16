@@ -13,7 +13,7 @@ and available host memory and disk space before preparing or running models.
 On Windows, install uv and run
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/bootstrap-win.ps1
+uv run --no-project --python 3.12.13 scripts/bootstrap.py
 .\.venv-win\Scripts\fasth3.exe doctor --gpu
 ```
 
@@ -28,7 +28,8 @@ For a source-tree check, the equivalent entry point is
 `.\.venv-win\Scripts\python.exe -m fasth3_pipeline.cli`.
 
 For Linux x86_64 or WSL, follow the cache exports and
-`python3.12 scripts/bootstrap.py` example in [README.md](README.md#install-on-linux--wsl).
+`uv run --no-project --python 3.12 scripts/bootstrap.py` example in
+[README.md](README.md#install-on-linux--wsl).
 The PowerShell and Bash launchers delegate installation to this shared Python
 entry; `python scripts/bootstrap.py --dry-run` previews its plan without setup.
 Use Python 3.12; the checked Linux environment uses 3.12.3, rather than requiring
@@ -36,16 +37,17 @@ the Windows patch version. `FASTH3_WORK_DIR` selects a work directory with room
 for the venv, caches and models. `FASTH3_PYTHON` and `FASTH3_PYPI_INDEX` select
 the interpreter and PyPI index. Keep WSL model files on its Linux filesystem.
 
-The bootstrap installs `requirements-linux-cu128.txt` with `--no-deps` from the
-official PyTorch CUDA 12.8 index first, then installs `requirements-linux.txt`,
-including `pe,test` dependencies, and this source tree in editable mode. These
-snapshots share the CUDA pins through a requirements include, so each version
-is maintained once. They use Torch 2.10.0+cu128, torchvision 0.25.0+cu128, CuTe DSL
+The bootstrap installs `requirements-linux.txt`, including the CUDA stack and
+`pe,test` dependencies, then this source tree in editable mode. There is one
+dependency file per platform: `requirements-linux.txt` and `requirements-win.lock`.
+The Linux file pins official CUDA 12.8 PyTorch wheel URLs; the other packages
+use the selected PyPI index. It uses Torch 2.10.0+cu128, torchvision 0.25.0+cu128, CuTe DSL
 4.8.1 and the pinned Diffusers archive from `pyproject.toml`. Linux
 cuda-python/cuda-bindings must use 12.9.4 because the Linux Torch wheel requires
 that binding version; the Windows cuda-python pin remains 12.9.10. Do not force
-12.9.10 onto Linux by bypassing dependency checks. The Linux snapshots are not
-complete wheel-hash locks. The shared bootstrap was run in a new `.venv-linux`
+12.9.10 onto Linux by bypassing dependency checks. The Linux snapshot is not a
+complete wheel-hash lock. Before consolidating the dependency files, the
+two-stage bootstrap was run in a new `.venv-linux`
 with the existing dependency cache: installation took 16.789 s, or 36.297 s
 including package compatibility checks, CPU/GPU doctor and three actual CuTe
 kernel checks. The full Linux CPU suite recorded 403 passed / 51 skipped in

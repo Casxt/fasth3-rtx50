@@ -31,21 +31,21 @@ Python 进程内存、全系统内存和显存占用。
 NVIDIA 驱动。在仓库根目录执行。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/bootstrap-win.ps1
+uv run --no-project --python 3.12.13 scripts/bootstrap.py
 .\.venv-win\Scripts\Activate.ps1
-fasth3 doctor --gpu
 ```
 
 Windows x64 锁定 Python 3.12.13 与 CUDA 12.8 版 PyTorch。
-两个平台的启动脚本共用 `scripts/bootstrap.py`。已有 Python 时可直接执行
-`python scripts/bootstrap.py`；Windows 还需在 `PATH` 中提供 uv。
-给这条 Python 命令加 `--dry-run` 可预览安装计划。
+安装器读取 Windows 唯一的依赖文件 `requirements-win.lock`，再安装本项目。
+缺少 Python 时由 uv 自动准备。在 `scripts/bootstrap.py` 后加 `--dry-run`
+可预览安装计划。原 PowerShell 启动脚本仍可使用。
 
 ## Linux / WSL 安装
 
 Linux x86_64 环境已在 Ubuntu 22.04、Python 3.12.3、PyTorch 2.10.0+cu128、
 torchvision 0.25.0+cu128 和 CuTe DSL 4.8.1 上检查。使用 Python 3.12 和兼容
-CUDA 12.8 的 NVIDIA 驱动。选择有足够空间存放环境、缓存和模型的工作目录；
+CUDA 12.8 的 NVIDIA 驱动，并安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)。
+选择有足够空间存放环境、缓存和模型的工作目录；
 WSL 文件保存在其 Linux 文件系统中。在仓库根目录替换示例路径后执行：
 
 ```bash
@@ -53,14 +53,12 @@ export FASTH3_WORK_DIR=/path/to/data-disk/fasth3
 export XDG_CACHE_HOME="$FASTH3_WORK_DIR/cache" TMPDIR="$FASTH3_WORK_DIR/tmp"
 export CUDA_CACHE_PATH="$FASTH3_WORK_DIR/cache/cuda" TRITON_CACHE_DIR="$FASTH3_WORK_DIR/cache/triton"
 export CUTE_DSL_CACHE_DIR="$FASTH3_WORK_DIR/cache/cutlass" CUTE_DSL_DUMP_DIR="$FASTH3_WORK_DIR/tmp/cute-dump"
-python3.12 scripts/bootstrap.py
+uv run --no-project --python 3.12 scripts/bootstrap.py
 source "$FASTH3_WORK_DIR/.venv-linux/bin/activate"
-fasth3 --help
-fasth3 doctor --gpu
 ```
 
-显卡空闲时运行 GPU 检查。脚本创建独立 venv，先安装 `requirements-linux-cu128.txt`
-中的 CUDA 栈，再安装 `requirements-linux.txt` 中的固定版本和本项目，包含 `pe,test`
+脚本创建独立 venv，读取 Linux 唯一的依赖文件 `requirements-linux.txt`，再安装本项目。
+该文件同时包含 CUDA 依赖、官方 PyTorch CUDA 12.8 wheel 直链和 `pe,test`
 依赖并检查包兼容性。可用 `FASTH3_PYTHON` 选择其他 Python 3.12 可执行文件，
 用 `FASTH3_PYPI_INDEX` 选择 PyPI 镜像。`bash scripts/bootstrap-linux.sh` 只是同一
 Python 入口的薄启动脚本。后续运行的 shell 也需保留上述缓存设置；
@@ -70,12 +68,12 @@ Python 入口的薄启动脚本。后续运行的 shell 也需保留上述缓存
 
 Linux 使用 cuda-python/cuda-bindings 12.9.4，以满足 Linux PyTorch wheel 对 binding
 版本的严格要求；Windows 保持 cuda-python 12.9.10。Linux 依赖文件是版本快照，
-仅固定的 Diffusers 源码包带哈希，并非完整 wheel 哈希锁。共享 bootstrap 已在复用
-现有依赖缓存的条件下创建并安装新的 `.venv-linux`，耗时 16.789 秒；连同包兼容性检查、
-CPU/GPU doctor 和 3 项真实 CuTe 内核检查，验证总耗时 36.297 秒。完整 CPU 套件为
-403 通过 / 51 跳过，耗时 4.69 秒；完整 GPU 套件为 454 通过 / 零跳过，耗时 39.64 秒，
-包含 10 GiB allocator 上限下的真实 NVFP4 checkpoint 检查。
-资源统计和检查细节见 [AGENTS.md](AGENTS.md)。
+其中 PyTorch wheel 与固定的 Diffusers 源码包带哈希，并非完整 wheel 哈希锁。
+检查细节见 [AGENTS.md](AGENTS.md)，历史环境、测试和生成实测见
+[Linux 验证报告](benchmarks/linux-validation.md)。
+
+激活环境后，可在显卡空闲时运行 `fasth3 doctor --gpu`，检查依赖、PyTorch CUDA
+是否可用，以及显卡是否满足 SM120 要求。这是可选诊断命令，环境安装由上面的 uv 命令完成。
 
 ## 准备权重
 

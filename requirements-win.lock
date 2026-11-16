@@ -1,5 +1,5 @@
 # Windows x64, CPython 3.12.13, CUDA 12.8 PyTorch. Runtime, test, and PE extras.
-# Pinned with uv pip compile from pyproject.toml. Install with scripts/bootstrap-win.ps1.
+# Pinned with uv pip compile from pyproject.toml. Install with scripts/bootstrap.py.
 accelerate==1.15.0 \
     --hash=sha256:5654f8c5eaa0d4fa68b33e287a97765da6849bf6d51dcac874e73fbbddfb6134 \
     --hash=sha256:97eacca0b73e45cb867dbf8c5d5d4dc32219544300e0c8992c7334dc2ef33cec

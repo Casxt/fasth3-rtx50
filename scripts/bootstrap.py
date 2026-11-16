@@ -75,7 +75,6 @@ def configuration(args):
         steps += [
             ('Check Linux environment Python', [str(python), '-c', LINUX_CHECK]),
             ('Install uv 0.13.8', [str(python), '-m', 'pip', 'install', '--index-url', index, 'uv==0.13.8']),
-            ('Install CUDA 12.8 stack', [uv, 'pip', 'install', '--python', str(python), '--no-deps', '--index-url', 'https://download.pytorch.org/whl/cu128', '-r', str(ROOT / 'requirements-linux-cu128.txt')]),
             ('Install Linux version snapshot', [uv, 'pip', 'install', '--python', str(python), '--index-url', index, '-r', str(ROOT / 'requirements-linux.txt')]),
             ('Install FastH3 source', [uv, 'pip', 'install', '--python', str(python), '--no-deps', '--index-url', index, '--editable', str(ROOT)]),
             ('Check package compatibility', [uv, 'pip', 'check', '--python', str(python)]),
